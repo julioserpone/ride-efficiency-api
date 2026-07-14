@@ -1,21 +1,47 @@
 name: tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - develop
       - pre-release
       - main
       - master
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
     branches:
-      - develop
       - pre-release
       - main
       - master
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    env:
+      POSTGRES_DB: testing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+    options: >-
+      --health-cmd="pg_isready -U postgres -d testing"
+      --health-interval=10s
+      --health-timeout=5s
+      --health-retries=5
 
 jobs:
   ci:
@@ -34,6 +60,7 @@ jobs:
         uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
         with:
           php-version: ${{ matrix.php-version }}
+          extensions: pdo, pdo_pgsql, pgsql
           tools: composer:v2
           coverage: xdebug
 
@@ -51,8 +78,17 @@ jobs:
       - name: Copy Environment File
         run: cp .env.example .env
 
-      - name: Generate Application Key
-        run: php artisan key:generate
+      - name: Configure Test Database
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: testing
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+        run: |
+          php artisan config:clear
+          php artisan key:generate
 
       - name: Build Assets
         run: npm run build

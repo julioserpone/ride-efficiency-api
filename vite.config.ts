@@ -3,6 +3,7 @@ import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 import laravel from 'laravel-vite-plugin';
+import ui from '@nuxt/ui/vite';
 import { bunny } from 'laravel-vite-plugin/fonts';
 import { defineConfig } from 'vite';
 
@@ -23,6 +24,8 @@ export default defineConfig({
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.ts'],
             refresh: true,
+            valetTls: false,
+            detectTls: false,
             fonts: [
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
@@ -39,6 +42,7 @@ export default defineConfig({
                 },
             },
         }),
+        ui(),
         wayfinder({
             formVariants: true,
         }),

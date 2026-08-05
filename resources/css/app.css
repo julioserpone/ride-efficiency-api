@@ -1,4 +1,6 @@
+@import "@nuxt/ui";
 @import 'tailwindcss';
+
 
 @import 'tw-animate-css';
 

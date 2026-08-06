@@ -31,7 +31,31 @@ const recentInvoices = computed(() => page.props.value?.recentInvoices ?? []);
 <template>
     <Head title="Dashboard" />
 
-    <div class="flex min-h-full flex-col gap-6 p-4">
+    <div class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-4 sm:p-6 lg:p-8">
+        <div class="sticky top-16 z-20 rounded-[2rem] border border-border/70 bg-card/90 p-6 shadow-soft backdrop-blur-xl backdrop-saturate-150 transition-all duration-300">
+            <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div class="max-w-2xl space-y-3">
+                    <p class="text-xs uppercase tracking-[0.3em] text-muted-foreground">Panel de control</p>
+                    <h1 class="text-3xl font-semibold text-foreground sm:text-4xl">Rendimiento de tu aplicación</h1>
+                    <p class="text-sm leading-6 text-muted-foreground">Monitorea tus ganancias, kilómetros y recibos desde una experiencia limpia y moderna inspirada en iOS.</p>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-3">
+                    <div class="rounded-[1.5rem] border border-border/70 bg-background/90 p-4 text-center shadow-sm">
+                        <p class="text-xs uppercase tracking-[0.28em] text-muted-foreground">Turnos</p>
+                        <p class="mt-2 text-2xl font-semibold text-foreground">{{ summary.total_shifts ?? 0 }}</p>
+                    </div>
+                    <div class="rounded-[1.5rem] border border-border/70 bg-background/90 p-4 text-center shadow-sm">
+                        <p class="text-xs uppercase tracking-[0.28em] text-muted-foreground">Ingresos</p>
+                        <p class="mt-2 text-2xl font-semibold text-foreground">{{ summary.total_net_profit ? `$${summary.total_net_profit.toFixed(2)}` : '$0.00' }}</p>
+                    </div>
+                    <div class="rounded-[1.5rem] border border-border/70 bg-background/90 p-4 text-center shadow-sm">
+                        <p class="text-xs uppercase tracking-[0.28em] text-muted-foreground">Kilómetros</p>
+                        <p class="mt-2 text-2xl font-semibold text-foreground">{{ summary.total_km?.toFixed(1) ?? '0.0' }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatsCard
                 title="Ganancia Neta Total"
@@ -63,7 +87,7 @@ const recentInvoices = computed(() => page.props.value?.recentInvoices ?? []);
             />
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+        <div class="grid gap-4 xl:grid-cols-[1.75fr_1fr]">
             <EarningsChart :weeklyData="weeklyData" />
             <EfficiencyChart :monthlyData="monthlyData" />
         </div>

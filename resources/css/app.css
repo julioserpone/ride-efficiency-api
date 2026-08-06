@@ -89,6 +89,15 @@
             'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
             'Noto Color Emoji';
     }
+
+    .shadow-soft {
+        box-shadow: 0 20px 50px -28px rgba(15, 23, 42, 0.24);
+    }
+
+    .glass-card {
+        background-color: rgba(255, 255, 255, 0.92);
+        backdrop-filter: blur(18px);
+    }
 }
 
 :root {

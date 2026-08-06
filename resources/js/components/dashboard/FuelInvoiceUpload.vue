@@ -79,23 +79,23 @@ const dragEvents = {
 </script>
 
 <template>
-  <div class="rounded-3xl border border-border bg-card p-6 shadow-sm">
+  <div class="rounded-[2rem] border border-border/70 bg-card/95 p-6 shadow-soft">
     <div class="mb-4 flex items-center justify-between gap-4">
       <div>
-        <p class="text-sm font-medium text-muted-foreground">Recibos de gasolina</p>
+        <p class="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">Recibos de gasolina</p>
         <p class="text-xs text-muted-foreground">Sube recibos y revisa el estado OCR</p>
       </div>
     </div>
 
     <div
-      class="rounded-3xl border p-8 text-center transition-all duration-200"
+      class="rounded-[1.75rem] border border-dashed border-border/70 bg-background/90 p-8 text-center transition-all duration-200"
       :class="dropAreaClass"
       @dragover="dragEvents.handleDragOver"
       @dragleave="dragEvents.handleDragLeave"
       @drop="handleDrop"
     >
       <p class="text-sm text-muted-foreground">Arrastra y suelta tu recibo aquí o haz clic para seleccionar uno.</p>
-      <label class="mt-4 inline-flex cursor-pointer items-center justify-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90">
+      <label class="mt-4 inline-flex cursor-pointer items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90">
         Seleccionar archivo
         <input type="file" class="hidden" accept="image/*,.pdf" @change="handleFileInput" />
       </label>
@@ -107,7 +107,7 @@ const dragEvents = {
       <div
         v-for="invoice in invoices"
         :key="invoice.id"
-        class="rounded-3xl border border-border/70 bg-background p-4"
+        class="rounded-[1.75rem] border border-border/70 bg-background/90 p-4 shadow-sm"
       >
         <div class="flex flex-wrap items-center justify-between gap-4">
           <p class="font-medium text-foreground">Recibo {{ invoice.id }}</p>
@@ -123,7 +123,7 @@ const dragEvents = {
             {{ invoice.status }}
           </span>
         </div>
-        <div class="mt-2 text-sm text-muted-foreground">
+        <div class="mt-3 text-sm text-muted-foreground space-y-1">
           <p>Fecha: {{ invoice.invoice_date ?? 'Pendiente' }}</p>
           <p>Monto: {{ invoice.total_amount_paid !== null ? `$${invoice.total_amount_paid.toFixed(2)}` : 'N/A' }}</p>
         </div>

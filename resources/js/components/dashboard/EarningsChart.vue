@@ -42,14 +42,14 @@ const chartOptions = {
 </script>
 
 <template>
-  <div class="rounded-3xl border border-border bg-card p-6 shadow-sm">
+  <div class="rounded-[2rem] border border-border/70 bg-card/95 p-6 shadow-soft">
     <div class="mb-4 flex items-center justify-between gap-4">
       <div>
-        <p class="text-sm font-medium text-muted-foreground">Ganancias por semana</p>
+        <p class="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">Ganancias por semana</p>
         <p class="text-xs text-muted-foreground">Últimas 8 semanas</p>
       </div>
     </div>
 
-    <VueApexCharts type="bar" height="320" :options="chartOptions" :series="series" />
+    <VueApexCharts type="bar" height="300" :options="chartOptions" :series="series" />
   </div>
 </template>

@@ -78,9 +78,11 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
         run: |
-              php artisan config:clear
-              php artisan key:generate
-          - name: Run Type Analysis
-            run: composer types:check
-          - name: Tests
-            run: php artisan test
+          php artisan config:clear
+          php artisan key:generate
+
+      - name: Run Type Analysis
+        run: composer types:check
+
+      - name: Tests
+        run: php artisan test

@@ -63,14 +63,6 @@ jobs:
           tools: composer:v2
           coverage: xdebug
 
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
-        with:
-          node-version: '22'
-
-      - name: Install Node Dependencies
-        run: npm i
-
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
@@ -86,14 +78,9 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
         run: |
-          php artisan config:clear
-          php artisan key:generate
-
-      - name: Build Assets
-        run: npm run build
-
-      - name: Run Type Analysis
-        run: composer types:check
-
-      - name: Tests
-        run: php artisan test
+              php artisan config:clear
+              php artisan key:generate
+          - name: Run Type Analysis
+            run: composer types:check
+          - name: Tests
+            run: php artisan test

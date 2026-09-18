@@ -3,6 +3,7 @@
 use App\Models\DailyShift;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
@@ -21,7 +22,8 @@ test('authenticated user can start a daily shift with platform earnings', functi
         ],
     ];
 
-    $response = $this->actingAs($user)->postJson(route('api.v1.shifts.store'), $payload);
+    Sanctum::actingAs($user);
+    $response = $this->postJson(route('api.v1.shifts.store'), $payload);
 
     $response->assertCreated()
         ->assertJsonPath('message', 'Shift created successfully.')
@@ -65,7 +67,8 @@ test('calculates profitability correctly on shift closure', function () {
         'applied_fuel_cost' => 35.00,
     ];
 
-    $response = $this->actingAs($user)->postJson(route('api.v1.shifts.close', $shift), $closePayload);
+    Sanctum::actingAs($user);
+    $response = $this->postJson(route('api.v1.shifts.close', $shift), $closePayload);
 
     $response->assertOk()
         ->assertJsonPath('shift.applied_fuel_cost', '35.00')
@@ -92,7 +95,8 @@ test('prevents creating duplicate shifts for the same calendar date', function (
         'shift_date' => '2026-08-05',
     ];
 
-    $response = $this->actingAs($user)->postJson(route('api.v1.shifts.store'), $payload);
+    Sanctum::actingAs($user);
+    $response = $this->postJson(route('api.v1.shifts.store'), $payload);
 
     $response->assertStatus(422)
         ->assertJsonPath('message', 'A shift already exists for this date.');
@@ -109,7 +113,8 @@ test('user can list their recorded shifts with total summary', function () {
         'total_trips_completed' => 10,
     ]);
 
-    $response = $this->actingAs($user)->getJson(route('api.v1.shifts.index'));
+    Sanctum::actingAs($user);
+    $response = $this->getJson(route('api.v1.shifts.index'));
 
     $response->assertOk()
         ->assertJsonPath('summary.total_shifts', 1)
@@ -126,9 +131,10 @@ test('user cannot view or close another user shift', function () {
         'user_id' => $userB->id,
     ]);
 
-    $showResponse = $this->actingAs($userA)->getJson(route('api.v1.shifts.show', $shiftB));
+    Sanctum::actingAs($userA);
+    $showResponse = $this->getJson(route('api.v1.shifts.show', $shiftB));
     $showResponse->assertStatus(403);
-
-    $closeResponse = $this->actingAs($userA)->postJson(route('api.v1.shifts.close', $shiftB), []);
+    Sanctum::actingAs($userA);
+    $closeResponse = $this->postJson(route('api.v1.shifts.close', $shiftB), []);
     $closeResponse->assertStatus(403);
 });

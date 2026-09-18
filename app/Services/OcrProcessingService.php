@@ -11,7 +11,6 @@ class OcrProcessingService
     /**
      * Process an image file and extract fuel invoice data.
      *
-     * @param  string  $absoluteImagePath
      * @return array{
      *     raw_text: string,
      *     total_amount_paid: float|null,

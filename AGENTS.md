@@ -111,28 +111,21 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
 
-=== inertia-laravel/core rules ===
+=== api-only rules ===
 
-# Inertia
+# API-Only Architecture
+- This repository is the backend only: database schema, Eloquent models, business logic, jobs, and a JSON API. There is **no** web UI here.
+- The only browser-facing route is the informational landing page at `/` (`resources/views/welcome.blade.php`). Do not add Blade views, Inertia pages, or frontend assets to this repository.
+- The web dashboard lives in the separate `ride-efficiency-frontend` repository (Vue 3 + Vite + PrimeVue) and the mobile app in `ride-efficiency-mobile` (React Native).
 
-- Inertia creates fully client-side rendered SPAs without modern SPA complexity, leveraging existing server-side patterns.
-- Components live in `resources/js/pages` (unless specified in `vite.config.js`). Use `Inertia::render()` for server-side routing instead of Blade views.
-- ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
-- IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
+# Authentication
+- All API routes are protected with `auth:sanctum` and consume Laravel Sanctum **personal access tokens** (bearer tokens). There is no session/stateful SPA auth.
+- Tokens are issued via `POST /api/v1/auth/token` and revoked via `DELETE /api/v1/auth/token`. Only token issuance is unauthenticated (rate limited to `throttle:6,1`).
+- CORS origins are configured through the `CORS_ALLOWED_ORIGINS` environment variable consumed by `config/cors.php`.
 
-# Inertia v3
-
-- Use all Inertia features from v1, v2, and v3. Check the documentation before making changes to ensure the correct approach.
-- New v3 features: standalone HTTP requests (`useHttp` hook), optimistic updates with automatic rollback, layout props (`useLayoutProps` hook), instant visits, simplified SSR via `@inertiajs/vite` plugin, custom exception handling for error pages.
-- Carried over from v2: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
-- When using deferred props, add an empty state with a pulsing or animated skeleton.
-- Axios has been removed. Use the built-in XHR client with interceptors, or install Axios separately if needed.
-- `Inertia::lazy()` / `LazyProp` has been removed. Use `Inertia::optional()` instead.
-- Prop types (`Inertia::optional()`, `Inertia::defer()`, `Inertia::merge()`) work inside nested arrays with dot-notation paths.
-- SSR works automatically in Vite dev mode with `@inertiajs/vite` - no separate Node.js server needed during development.
-- Event renames: `invalid` is now `httpException`, `exception` is now `networkError`.
-- `router.cancel()` replaced by `router.cancelAll()`.
-- The `future` configuration namespace has been removed - all v2 future options are now always enabled.
+# Responses
+- All API endpoints return JSON. Keep response shapes stable — the Vue SPA and the React Native app both depend on them.
+- API versioning lives in the URL prefix (`/api/v1/...`) and in route names (`api.v1.*`).
 
 === laravel/core rules ===
 
@@ -164,11 +157,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
 
-=== wayfinder/core rules ===
 
-# Laravel Wayfinder
-
-Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `@/actions/` (controllers) or `@/routes/` (named routes).
 
 === pint/core rules ===
 
@@ -186,11 +175,6 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
 
-=== inertia-vue/core rules ===
 
-# Inertia + Vue
-
-Vue components must have a single root element.
-- IMPORTANT: Activate `inertia-vue-development` when working with Inertia Vue client-side patterns.
 
 </laravel-boost-guidelines>

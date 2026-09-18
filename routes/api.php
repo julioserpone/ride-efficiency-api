@@ -1,11 +1,24 @@
 <?php
 
+use App\Http\Controllers\Api\AuthTokenController;
 use App\Http\Controllers\Api\FuelInvoiceController;
 use App\Http\Controllers\Api\ShiftController;
 use App\Http\Controllers\Api\StatsController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware(['auth'])->group(function () {
+Route::prefix('v1')->group(function () {
+    // Token issuance & revocation
+    Route::post('/auth/token', [AuthTokenController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('api.v1.auth.token.store');
+    Route::get('/auth/user', [AuthTokenController::class, 'show'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.user');
+    Route::delete('/auth/token', [AuthTokenController::class, 'destroy'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.token.destroy');
+});
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // Shifts
     Route::get('/shifts', [ShiftController::class, 'index'])->name('api.v1.shifts.index');
     Route::post('/shifts', [ShiftController::class, 'store'])->name('api.v1.shifts.store');

@@ -1,12 +1,15 @@
 <?php
 
-use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'Welcome')->name('home');
+/*
+|--------------------------------------------------------------------------
+| Informational Landing
+|--------------------------------------------------------------------------
+|
+| This application is an API-only service. The only browser-facing route
+| is a static page describing the service, its owner, and its consumers.
+|
+*/
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', DashboardController::class)->name('dashboard');
-});
-
-require __DIR__.'/settings.php';
+Route::view('/', 'welcome')->name('home');

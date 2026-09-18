@@ -4,11 +4,27 @@
 Cross-platform system designed to help gig economy drivers (Uber, DiDi, Lyft) maximize their profitability by calculating real-time shift efficiency, fuel costs, vehicle depreciation, and net earnings. Future roadmap includes evolving into a proprietary ride-hailing app.
 
 ## Tech Stack & Architecture
-- **Backend:** Laravel 11 (API-only architecture) running on PostgreSQL.
-- **Authentication:** Laravel Sanctum (API Tokens for Mobile & Web SPA).
+- **Backend:** Laravel 13 (API-only architecture) running on PostgreSQL. This repository.
+- **Authentication:** Laravel Sanctum personal access tokens (bearer tokens) for both the Web SPA and the Mobile app.
 - **Mobile App:** React Native (Cross-platform Android & iOS) using NativeWind for styling and React Native Reanimated / Gesture Handler for interactive UX elements (e.g., draggable floating status button).
-- **Web Dashboard:** Vue.js 3 using Tailwind CSS, PrimeVue (DataTable, UI), and ApexCharts.
+- **Web Dashboard:** Vue.js 3 + Vite using Tailwind CSS, PrimeVue, and ApexCharts.
 - **Local OCR Engine:** Vision API / ML Kit (Mobile) & Tesseract (Backend fallback) for reading physical fuel invoices.
+
+### Repository Split
+This project holds **only** the database schema, Eloquent models, business logic, jobs and the JSON API. It renders no application UI — the sole browser route is the informational landing page at `/` describing the service and its owner. The UI lives in two separate repositories that consume this API:
+
+| Repository | Consumer |
+| --- | --- |
+| `ride-efficiency-api` | Database + JSON API (this repo) |
+| `ride-efficiency-frontend` | Vue 3 + PrimeVue web dashboard |
+| `ride-efficiency-mobile` | React Native mobile application |
+
+### API Authentication Flow
+1. `POST /api/v1/auth/token` with `email`, `password` and an optional `device_name` returns a plain-text bearer token.
+2. Consumers send `Authorization: Bearer <token>` on every protected request.
+3. `DELETE /api/v1/auth/token` revokes the token used for the request.
+
+All `/api/v1/*` endpoints except token issuance require the `auth:sanctum` middleware. CORS origins are controlled by `CORS_ALLOWED_ORIGINS`.
 
 ## Coding Standards & Rules
 1. **Language Standard:** ALL code, database schemas, migration files, variable names, method definitions, API endpoints, and code comments MUST be written exclusively in **English**.
@@ -16,13 +32,18 @@ Cross-platform system designed to help gig economy drivers (Uber, DiDi, Lyft) ma
    - `daily_shifts`: Tracks automated metrics (GPS km, connected time, scanned offers) and calculated net metrics (applied fuel cost, depreciation, real net profit).
    - `daily_earnings`: Relational table mapping earnings per platform (Uber, DiDi, etc.) linked to a daily shift.
    - `fuel_invoices`: Manages uploaded fuel physical receipts and asynchronous OCR data states.
-3. **UI/UX Guidelines:** Strict visual parity between Web and Mobile using unified Tailwind/NativeWind color tokens (`#10B981` Emerald for profitable, `#F59E0B` Amber for neutral, `#EF4444` Rose for loss, `#0F172A` Slate dark background).
+3. **UI/UX Guidelines:** Strict visual parity between Web and Mobile using unified Tailwind/NativeWind color tokens (`#10B981` Emerald for profitable, `#F59E0B` Amber for neutral, `#EF4444` Rose for loss, `#0F172A` Slate dark background). These guidelines apply to the frontend and mobile repositories, not here.
 
 ## Current Project Status
-- Initial Laravel 11 scaffold completed.
-- Database connection configured.
-- Migrations created and executed: `daily_shifts`, `daily_earnings`, `fuel_invoices`.
-- Active Task: Creating Eloquent Models with relationships and developing the `ShiftController` for shift closures and real-time profitability calculations.
+- Laravel 13 API-only service on PostgreSQL.
+- Domain migrations in place: `users`, `countries`, `daily_shifts`, `daily_earnings`, `fuel_invoices`, `personal_access_tokens`.
+- Eloquent models with relationships and factories/seeders for every entity.
+- Sanctum bearer-token authentication for the web and mobile consumers.
+- JSON API v1 complete for shifts, fuel invoices and statistics/efficiency metrics.
+- The former Inertia/Vue dashboard and Fortify web auth flow were extracted to `ride-efficiency-frontend`.
+
+## Spanish / Español
+Este repositorio es **únicamente** la base de datos y la API JSON. No contiene interfaz de usuario salvo la página informativa en `/`. El dashboard web vive en `ride-efficiency-frontend` y la app móvil en `ride-efficiency-mobile`; ambos se autentican con tokens Sanctum obtenidos en `POST /api/v1/auth/token`.
 
 
 

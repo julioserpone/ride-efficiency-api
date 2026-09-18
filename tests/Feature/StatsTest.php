@@ -4,21 +4,23 @@ use App\Models\DailyShift;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
 
 test('weekly stats returns aggregated data for last 8 weeks', function () {
     $user = User::factory()->create();
 
-    DailyShift::factory()->count(5)->for($user)->create([
-        'shift_date' => Carbon::now()->subWeek(),
+    collect(range(0, 4))->each(fn (int $daysAgo) => DailyShift::factory()->for($user)->create([
+        'shift_date' => Carbon::now()->subWeek()->subDays($daysAgo)->toDateString(),
         'real_net_profit' => 200.00,
         'total_km_gps' => 50.00,
         'applied_fuel_cost' => 30.00,
         'total_trips_completed' => 10,
-    ]);
+    ]));
 
-    $response = $this->actingAs($user)->getJson('/api/v1/stats/weekly');
+    Sanctum::actingAs($user);
+    $response = $this->getJson('/api/v1/stats/weekly');
 
     $response->assertStatus(200)
         ->assertJsonStructure([
@@ -40,12 +42,13 @@ test('weekly stats returns aggregated data for last 8 weeks', function () {
 test('monthly stats returns aggregated data for last 6 months', function () {
     $user = User::factory()->create();
 
-    DailyShift::factory()->count(3)->for($user)->create([
-        'shift_date' => Carbon::now()->subMonth(),
+    collect(range(1, 3))->each(fn (int $monthsAgo) => DailyShift::factory()->for($user)->create([
+        'shift_date' => Carbon::now()->subMonths($monthsAgo)->startOfMonth()->toDateString(),
         'real_net_profit' => 150.00,
-    ]);
+    ]));
 
-    $response = $this->actingAs($user)->getJson('/api/v1/stats/monthly');
+    Sanctum::actingAs($user);
+    $response = $this->getJson('/api/v1/stats/monthly');
 
     $response->assertStatus(200)
         ->assertJsonStructure([
@@ -62,7 +65,8 @@ test('summary returns global totals, best shift, and worst shift', function () {
     DailyShift::factory()->for($user)->create(['real_net_profit' => 50.00, 'shift_date' => '2026-07-02']);
     DailyShift::factory()->for($user)->create(['real_net_profit' => -10.00, 'shift_date' => '2026-07-03']);
 
-    $response = $this->actingAs($user)->getJson('/api/v1/stats/summary');
+    Sanctum::actingAs($user);
+    $response = $this->getJson('/api/v1/stats/summary');
 
     $response->assertStatus(200)
         ->assertJsonStructure([
@@ -88,7 +92,8 @@ test('efficiency returns profit per km and per hour ratios', function () {
         'shift_date' => Carbon::now()->toDateString(),
     ]);
 
-    $response = $this->actingAs($user)->getJson('/api/v1/stats/efficiency');
+    Sanctum::actingAs($user);
+    $response = $this->getJson('/api/v1/stats/efficiency');
 
     $response->assertStatus(200)
         ->assertJsonStructure([

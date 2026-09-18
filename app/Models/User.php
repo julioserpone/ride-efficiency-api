@@ -7,15 +7,16 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
-use Laravel\Fortify\Contracts\PasskeyUser;
-use Laravel\Fortify\PasskeyAuthenticatable;
-use Laravel\Fortify\TwoFactorAuthenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * @property int $id
+ * @property int|null $country_id
  * @property string $name
  * @property string $email
  * @property Carbon|null $email_verified_at
@@ -27,12 +28,42 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'country_id'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements PasskeyUser
+class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, Notifiable;
+
+    /**
+     * Get the country configured for this user.
+     *
+     * @return BelongsTo<Country, $this>
+     */
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class);
+    }
+
+    /**
+     * Get the daily shifts recorded for this user.
+     *
+     * @return HasMany<DailyShift, $this>
+     */
+    public function dailyShifts(): HasMany
+    {
+        return $this->hasMany(DailyShift::class);
+    }
+
+    /**
+     * Get the fuel invoices uploaded by this user.
+     *
+     * @return HasMany<FuelInvoice, $this>
+     */
+    public function fuelInvoices(): HasMany
+    {
+        return $this->hasMany(FuelInvoice::class);
+    }
 
     /**
      * Get the attributes that should be cast.

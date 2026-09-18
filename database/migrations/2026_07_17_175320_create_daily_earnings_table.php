@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('daily_earnings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('daily_shift_id')->constrained()->onDelete('cascade');
-            $table->string('provider_name'); 
+            $table->string('provider_name');
             $table->decimal('gross_amount', 8, 2)->default(0.00);
             $table->timestamps();
         });

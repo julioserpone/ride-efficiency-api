@@ -28,30 +28,6 @@ services:
             mailpit:
                 condition: service_started
 
-    vite:
-        build:
-            context: './vendor/laravel/sail/runtimes/8.5'
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP:-1000}'
-        image: 'sail-8.5/app'
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        ports:
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-        environment:
-            WWWUSER: '${WWWUSER:-1000}'
-            LARAVEL_SAIL: 1
-        volumes:
-            - '.:/var/www/html'
-        working_dir: '/var/www/html'
-        command: sh -c "npm run dev -- --host 0.0.0.0 --port ${VITE_PORT:-5173} --strictPort"
-        networks:
-            - sail
-        depends_on:
-            laravel.test:
-                condition: service_started
-
     pgsql:
         image: 'postgres:16-alpine'
         ports:

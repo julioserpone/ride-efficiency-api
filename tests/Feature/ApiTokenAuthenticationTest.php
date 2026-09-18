@@ -53,6 +53,12 @@ test('protected endpoints reject unauthenticated requests', function () {
     $this->getJson(route('api.v1.auth.user'))->assertUnauthorized();
 });
 
+test('unauthenticated api requests never redirect to a login page', function () {
+    // There is no web login route in this API-only service, so the guard must
+    // answer 401 rather than blow up trying to build a redirect.
+    $this->get(route('api.v1.stats.summary'))->assertUnauthorized();
+});
+
 test('the current user can be retrieved with a bearer token', function () {
     $user = User::factory()->create();
     $token = $user->createToken('web-dashboard')->plainTextToken;

@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $shift_date
  * @property float $total_km_gps
  * @property int $total_minutes_connected
+ * @property int|null $total_minutes Aggregate alias used by efficiency statistics.
  * @property int $total_trips_completed
  * @property int $total_offers_scanned
  * @property float $applied_fuel_cost

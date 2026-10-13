@@ -57,4 +57,24 @@ class Country extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    /**
+     * Get the regional energy products available in this country.
+     *
+     * @return HasMany<EnergyProduct, $this>
+     */
+    public function energyProducts(): HasMany
+    {
+        return $this->hasMany(EnergyProduct::class);
+    }
+
+    /**
+     * Get the vehicles registered in this country.
+     *
+     * @return HasMany<Vehicle, $this>
+     */
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
 }

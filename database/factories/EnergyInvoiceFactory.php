@@ -2,17 +2,19 @@
 
 namespace Database\Factories;
 
-use App\Models\FuelInvoice;
+use App\Models\Country;
+use App\Models\EnergyInvoice;
 use App\Models\User;
 use GigEconomics\Domain\Shared\EnergyType;
+use GigEconomics\Domain\Shared\EnergyUnit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends Factory<FuelInvoice>
+ * @extends Factory<EnergyInvoice>
  */
-class FuelInvoiceFactory extends Factory
+class EnergyInvoiceFactory extends Factory
 {
-    protected $model = FuelInvoice::class;
+    protected $model = EnergyInvoice::class;
 
     /**
      * Define the model's default state.
@@ -31,8 +33,12 @@ class FuelInvoiceFactory extends Factory
 
         return [
             'user_id' => User::factory(),
+            'country_id' => Country::factory(),
             'image_path' => 'invoices/receipt_'.$this->faker->uuid().'.jpg',
             'total_amount_paid' => round($subtotal * (1 + $taxRate / 100), 2),
+            'energy_amount' => $volume,
+            'energy_unit' => EnergyUnit::Gallons,
+            'currency_code' => 'USD',
             'fuel_volume_units' => $volume,
             'fuel_type' => 'Regular',
             'energy_type' => EnergyType::RegularGasoline,
@@ -63,6 +69,8 @@ class FuelInvoiceFactory extends Factory
 
             return [
                 'total_amount_paid' => round($subtotal * (1 + $taxRate / 100), 2),
+                'energy_amount' => $kilowattHours,
+                'energy_unit' => EnergyUnit::KilowattHours,
                 'fuel_volume_units' => $kilowattHours,
                 'fuel_type' => 'Electric',
                 'energy_type' => EnergyType::Electric,
@@ -72,5 +80,18 @@ class FuelInvoiceFactory extends Factory
                 'ocr_raw_text' => 'CHARGING HUB TOTAL $18.00 45.00 KWH',
             ];
         });
+    }
+
+    /**
+     * State for an invoice purchased in a specific country.
+     */
+    public function inCountry(Country $country): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'country_id' => $country->id,
+            'currency_code' => $country->currency_code,
+            'energy_unit' => $country->code === 'US' ? EnergyUnit::Gallons : EnergyUnit::Litres,
+            'energy_amount' => $attributes['fuel_volume_units'] ?? null,
+        ]);
     }
 }

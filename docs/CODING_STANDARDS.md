@@ -91,7 +91,7 @@ by `composer lint` (Laravel Pint) and `composer types:check` (Larastan).
 
 - Migrations are additive and reversible: implement `down()` for every `up()`.
 - Table and column names are `snake_case` and singular/plural per Laravel
-  convention (`daily_shifts`, `fuel_invoices`, `depreciation_rate_per_km`).
+  convention (`daily_shifts`, `energy_invoices`, `depreciation_rate_per_km`).
 - Add a foreign key and the matching index together; declare `nullOnDelete` or
   `cascadeOnDelete` explicitly so the intent is readable.
 - Never edit a migration that has already run in production; add a new one.

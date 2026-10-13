@@ -56,13 +56,33 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the fuel invoices uploaded by this user.
+     * Get the energy invoices uploaded by this user.
      *
-     * @return HasMany<FuelInvoice, $this>
+     * @return HasMany<EnergyInvoice, $this>
      */
-    public function fuelInvoices(): HasMany
+    public function energyInvoices(): HasMany
     {
-        return $this->hasMany(FuelInvoice::class);
+        return $this->hasMany(EnergyInvoice::class);
+    }
+
+    /**
+     * Get the vehicles registered by the user.
+     *
+     * @return HasMany<Vehicle, $this>
+     */
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
+
+    /**
+     * Get the rides recorded by the user.
+     *
+     * @return HasMany<RideTrip, $this>
+     */
+    public function rideTrips(): HasMany
+    {
+        return $this->hasMany(RideTrip::class);
     }
 
     /**

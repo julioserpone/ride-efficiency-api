@@ -6,7 +6,10 @@ use App\Models\Country;
 use App\Models\DailyShift;
 use GigEconomics\Domain\Money\Currency;
 use GigEconomics\Domain\Money\Money;
+use GigEconomics\Domain\Money\Percentage;
 use GigEconomics\Domain\Shared\Distance;
+use GigEconomics\Domain\Shared\EnergyEconomy;
+use GigEconomics\Domain\Trip\Fare;
 use GigEconomics\Domain\Trip\TripCostProfile;
 use GigEconomics\Domain\Trip\TripProfitabilityCalculator;
 use GigEconomics\Support\Configuration;
@@ -25,28 +28,28 @@ class CalculateShiftProfitabilityAction
         return DB::transaction(function () use ($shift, $appliedFuelCost, $customDepreciation) {
             $currency = $this->resolveCurrency($shift);
 
-            $fuelCost = Money::fromDecimal(
-                $appliedFuelCost !== null ? (string) $appliedFuelCost : $shift->applied_fuel_cost,
+            $energyCost = Money::of(
+                $appliedFuelCost !== null ? (string) $appliedFuelCost : ($shift->applied_fuel_cost ?? '0'),
                 $currency,
             );
 
             $depreciation = $customDepreciation !== null
-                ? Money::fromDecimal((string) $customDepreciation, $currency)
+                ? Money::of((string) $customDepreciation, $currency)
                 : $this->depreciationFor($shift, $currency);
 
-            $result = TripProfitabilityCalculator::forCostProfile(
-                $this->costProfile($currency)
+            $distance = Distance::ofKilometres($shift->total_km_gps);
+
+            $breakdown = TripProfitabilityCalculator::withDefaultTarget(
+                $this->targetProfitPerKilometre($currency)
             )->calculate(
-                grossEarnings: $this->sumEarnings($shift, $currency),
-                fuelCost: $fuelCost,
-                depreciation: $depreciation,
-                distance: Distance::fromKilometres($shift->total_km_gps),
-            );
+                Fare::create($this->sumEarnings($shift, $currency), $distance),
+                $this->costProfile($energyCost, $depreciation, $distance),
+            )->breakdown;
 
             $shift->update([
-                'applied_fuel_cost' => $result->fuelCost->toDecimal(),
-                'estimated_depreciation' => $result->depreciation->toDecimal(),
-                'real_net_profit' => $result->netProfit->toDecimal(),
+                'applied_fuel_cost' => $breakdown->energyCost->toDecimal(),
+                'estimated_depreciation' => $breakdown->depreciationCost->toDecimal(),
+                'real_net_profit' => $breakdown->netProfit->toDecimal(),
             ]);
 
             return $shift->fresh(['earnings']);
@@ -54,21 +57,38 @@ class CalculateShiftProfitabilityAction
     }
 
     /**
-     * Build the trip cost profile from the published gig-economics configuration.
+     * Build the trip cost profile from the shift's own energy and depreciation
+     * figures, so the library prices the shift exactly as the driver reported it.
+     *
+     * The profile is expressed as a per-kilometre depreciation rate instead of a
+     * total, because the calculator multiplies it by the trip distance. The
+     * energy price per unit is normalised so the economy reading of one kilometre
+     * per unit cancels out and the profile yields the shift's actual energy cost.
      */
-    protected function costProfile(Currency $currency): TripCostProfile
+    protected function costProfile(Money $energyCost, Money $depreciation, Distance $distance): TripCostProfile
+    {
+        $currency = $energyCost->currency;
+
+        $depreciationPerKilometre = $distance->isPositive()
+            ? Money::of($depreciation->toDecimal()->dividedBy($distance->toDecimal(), 12)->__toString(), $currency)
+            : Money::zero($currency);
+
+        return TripCostProfile::create(
+            energyPricePerUnit: Money::of($energyCost->toDecimal()->__toString(), $currency),
+            energyEconomy: EnergyEconomy::ofKilometresPerGallon($distance->toDecimal()->__toString()),
+            depreciationPerKilometre: $depreciationPerKilometre,
+            commissionRate: Percentage::zero(),
+        );
+    }
+
+    /**
+     * Minimum acceptable profit per kilometre, from the published configuration.
+     */
+    protected function targetProfitPerKilometre(Currency $currency): Money
     {
         $configuration = Configuration::fromArray(config('gig-economics', []));
 
-        return TripCostProfile::standard(
-            currency: $currency,
-            taxRatePercent: $configuration->defaultTaxRatePercent,
-            energyType: $configuration->defaultEnergyType,
-            targetProfitPerKilometre: Money::fromDecimal(
-                $configuration->defaultTargetProfitPerKilometre,
-                $currency,
-            ),
-        );
+        return Money::of($configuration->defaultTargetProfitPerKilometre, $currency);
     }
 
     /**
@@ -79,7 +99,7 @@ class CalculateShiftProfitabilityAction
         $total = Money::zero($currency);
 
         foreach ($shift->earnings as $earning) {
-            $total = $total->plus(Money::fromDecimal($earning->gross_amount, $currency));
+            $total = $total->plus(Money::of((string) $earning->gross_amount, $currency));
         }
 
         return $total;
@@ -90,8 +110,12 @@ class CalculateShiftProfitabilityAction
      */
     protected function depreciationFor(DailyShift $shift, Currency $currency): Money
     {
-        return Distance::fromKilometres($shift->total_km_gps)->multipliedBy(
-            Money::fromDecimal((string) $this->resolveDepreciationRatePerKm($shift), $currency)
+        return Money::of(
+            Distance::ofKilometres($shift->total_km_gps)
+                ->toDecimal()
+                ->multipliedBy((string) $this->resolveDepreciationRatePerKm($shift))
+                ->__toString(),
+            $currency,
         );
     }
 

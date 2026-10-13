@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreFuelInvoiceRequest extends FormRequest
+class StoreEnergyInvoiceRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,6 +24,7 @@ class StoreFuelInvoiceRequest extends FormRequest
     {
         return [
             'image' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'invoice_date' => ['nullable', 'date', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:500'],
         ];
@@ -37,7 +38,7 @@ class StoreFuelInvoiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'image.required' => 'A fuel invoice image is required.',
+            'image.required' => 'An energy invoice image is required.',
             'image.mimes' => 'The invoice must be a JPG, JPEG, PNG, or PDF file.',
             'image.max' => 'The invoice file must not exceed 10MB.',
         ];

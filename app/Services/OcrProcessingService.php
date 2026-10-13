@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use GigEconomics\Domain\Shared\EnergyUnit;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use thiagoalessio\TesseractOCR\Option;
@@ -25,21 +26,38 @@ class OcrProcessingService
      * @return array{
      *     raw_text: string,
      *     total_amount_paid: float|null,
+     *     energy_amount: float|null,
+     *     energy_unit: EnergyUnit|null,
+     *     unit_price: float|null,
+     *     tax_rate: float|null,
      *     fuel_volume_units: float|null,
      *     fuel_type: string|null,
      *     invoice_date: string|null
      * }
      */
-    public function processImage(string $absoluteImagePath): array
+    public function processImage(string $absoluteImagePath, ?string $countryCode = null): array
     {
         $rawText = $this->extractTextFromImage($absoluteImagePath);
+        $energyAmount = $this->extractEnergyAmount($rawText);
+        $totalAmount = $this->extractTotalAmount($rawText);
+        $unitPrice = $this->extractUnitPrice($rawText);
+        $taxRate = $this->extractTaxRate($rawText);
+
+        if ($unitPrice === null && $energyAmount['amount'] !== null && $totalAmount !== null) {
+            $unitPrice = $totalAmount / $energyAmount['amount'];
+            $taxRate = 0.0;
+        }
 
         return [
             'raw_text' => $rawText,
-            'total_amount_paid' => $this->extractTotalAmount($rawText),
-            'fuel_volume_units' => $this->extractFuelVolume($rawText),
+            'total_amount_paid' => $totalAmount,
+            'energy_amount' => $energyAmount['amount'],
+            'energy_unit' => $energyAmount['unit'],
+            'unit_price' => $unitPrice,
+            'tax_rate' => $taxRate,
+            'fuel_volume_units' => $energyAmount['amount'],
             'fuel_type' => $this->extractFuelType($rawText),
-            'invoice_date' => $this->extractInvoiceDate($rawText),
+            'invoice_date' => $this->extractInvoiceDate($rawText, $countryCode),
         ];
     }
 
@@ -167,18 +185,16 @@ class OcrProcessingService
      */
     private function extractTotalAmount(string $text): ?float
     {
-        // Patterns: "Total: $450.00", "TOTAL $450", "Total Pago: 450.50", "Importe: 450"
         $patterns = [
-            '/(?:total|importe|pago|amount)[\s:$]*\$?\s*([\d,]+\.?\d{0,2})/i',
-            '/\$\s*([\d,]+\.\d{2})/i',
-            '/(?:mxn|usd|pesos?)\s*([\d,]+\.?\d{0,2})/i',
+            '/(?:grand\s+total|total(?:\s+(?:amount\s+due|paid|amount|due|a\s+pagar|pagado))?|importe(?:\s+total)?|monto(?:\s+total)?|amount(?:\s+(?:paid|due))?|balance\s+due)\s*[:：]?\s*[$€£]?\s*([0-9][0-9.,]*)/iu',
+            '/(?:mxn|usd|cop|pen|clp|pesos?|dollars?)\s*[$€£]?\s*([0-9][0-9.,]*)/iu',
         ];
 
         foreach ($patterns as $pattern) {
             if (preg_match($pattern, $text, $matches)) {
-                $amount = (float) str_replace(',', '', $matches[1]);
+                $amount = $this->parseLocalizedNumber($matches[1], 2);
 
-                if ($amount > 0 && $amount < 10000) {
+                if ($amount !== null && $amount > 0 && $amount < 1000000000) {
                     return $amount;
                 }
             }
@@ -188,28 +204,107 @@ class OcrProcessingService
     }
 
     /**
-     * Extract fuel volume (liters/gallons) from OCR text.
+     * Extract energy quantity and its explicit invoice unit.
+     *
+     * @return array{amount: float|null, unit: EnergyUnit|null}
      */
-    private function extractFuelVolume(string $text): ?float
+    private function extractEnergyAmount(string $text): array
     {
-        // Patterns: "25.50 L", "25.50 litros", "5.5 gal", "Volumen: 30.00"
         $patterns = [
-            '/([\d]+\.?\d{0,3})\s*(?:litros?|lts?|l\.)\b/i',
-            '/([\d]+\.?\d{0,3})\s*(?:galones?|gals?|gal\.)\b/i',
-            '/(?:volumen|vol|litros?|cantidad)[\s:]*([0-9]+\.?[0-9]*)/i',
+            '/([0-9][0-9.,]*)\s*(?:kwh|kw\s*h|kilowatt[\s-]*hours?|kilovatios?\s*hora?s?)(?![a-z])/iu' => EnergyUnit::KilowattHours,
+            '/([0-9][0-9.,]*)\s*(?:lit(?:er|re)s?|litros?|lts?|l)(?![a-z])/iu' => EnergyUnit::Litres,
+            '/([0-9][0-9.,]*)\s*(?:gallons?\s+(?:gasoline\s+)?equivalent|gge|(?:us\s*)?gallons?|galones?|gals?|gal)(?![a-z])/iu' => EnergyUnit::Gallons,
         ];
 
-        foreach ($patterns as $pattern) {
+        foreach ($patterns as $pattern => $unit) {
             if (preg_match($pattern, $text, $matches)) {
-                $volume = (float) $matches[1];
+                $amount = $this->parseLocalizedNumber($matches[1], 3);
 
-                if ($volume > 0 && $volume < 1000) {
-                    return $volume;
+                if ($amount !== null && $amount > 0 && $amount < 1000000) {
+                    return ['amount' => $amount, 'unit' => $unit];
                 }
             }
         }
 
-        return null;
+        $quantityPattern = '/(?:energy\s+(?:delivered|amount|quantity)|electricity\s+consumed|cantidad\s+de\s+energ[ií]a|cantidad|volumen|volume|quantity|energy)\s*[:：]?\s*([0-9][0-9.,]*)/iu';
+
+        if (preg_match($quantityPattern, $text, $matches)) {
+            $amount = $this->parseLocalizedNumber($matches[1], 3);
+
+            if ($amount !== null && $amount > 0 && $amount < 1000000) {
+                return ['amount' => $amount, 'unit' => null];
+            }
+        }
+
+        return ['amount' => null, 'unit' => null];
+    }
+
+    /**
+     * Extract an explicitly printed price per energy unit.
+     */
+    private function extractUnitPrice(string $text): ?float
+    {
+        $pattern = '/(?:unit\s+price|price\s+per\s+unit|precio\s+unitario|precio\s+por\s+unidad|rate)\s*[:：]?\s*[$€£]?\s*([0-9][0-9.,]*)/iu';
+
+        if (! preg_match($pattern, $text, $matches)) {
+            return null;
+        }
+
+        $price = $this->parseLocalizedNumber($matches[1], 4);
+
+        return $price !== null && $price > 0 ? $price : null;
+    }
+
+    /**
+     * Extract a printed tax percentage when present.
+     */
+    private function extractTaxRate(string $text): ?float
+    {
+        $pattern = '/(?:tax(?:\s+rate)?|vat|iva|impuesto|tasa)\s*[:：]?\s*([0-9]+(?:[.,][0-9]{1,2})?)\s*%/iu';
+
+        if (! preg_match($pattern, $text, $matches)) {
+            return null;
+        }
+
+        return $this->parseLocalizedNumber($matches[1], 2);
+    }
+
+    /**
+     * Convert common English and Spanish decimal/thousands separators.
+     */
+    private function parseLocalizedNumber(string $value, int $maximumDecimalPlaces): ?float
+    {
+        $value = preg_replace('/[^0-9,.\-]/', '', $value) ?? '';
+
+        if ($value === '' || ! preg_match('/^-?[0-9][0-9.,]*$/', $value)) {
+            return null;
+        }
+
+        $comma = strrpos($value, ',');
+        $period = strrpos($value, '.');
+        $decimalSeparator = null;
+
+        if ($comma !== false && $period !== false) {
+            $decimalSeparator = $comma > $period ? ',' : '.';
+        } elseif ($comma !== false || $period !== false) {
+            $separator = $comma !== false ? ',' : '.';
+            $lastSeparator = strrpos($value, $separator);
+            $fractionLength = strlen($value) - $lastSeparator - 1;
+
+            if (substr_count($value, $separator) === 1 && $fractionLength > 0 && $fractionLength <= $maximumDecimalPlaces) {
+                $decimalSeparator = $separator;
+            }
+        }
+
+        if ($decimalSeparator !== null) {
+            $thousandsSeparator = $decimalSeparator === ',' ? '.' : ',';
+            $value = str_replace($thousandsSeparator, '', $value);
+            $value = str_replace($decimalSeparator, '.', $value);
+        } else {
+            $value = str_replace([',', '.'], '', $value);
+        }
+
+        return is_numeric($value) ? (float) $value : null;
     }
 
     /**
@@ -217,15 +312,19 @@ class OcrProcessingService
      */
     private function extractFuelType(string $text): ?string
     {
-        $fuelTypes = [
-            'Magna' => ['magna', 'regular'],
-            'Premium' => ['premium', 'super', 'plus'],
-            'Diesel' => ['diesel', 'diesel s'],
+        $knownNames = [
+            'Ecopaís' => ['ecopais', 'ecopaís'],
+            'Extra' => ['extra'],
+            'Magna' => ['magna'],
+            'Premium' => ['premium'],
+            'Regular' => ['regular', 'unleaded'],
+            'Diesel' => ['diesel', 'acpm'],
+            'Electric' => ['kwh', 'kilowatt-hour', 'kilowatt hour'],
         ];
 
-        $lowerText = strtolower($text);
+        $lowerText = mb_strtolower($text);
 
-        foreach ($fuelTypes as $type => $keywords) {
+        foreach ($knownNames as $type => $keywords) {
             foreach ($keywords as $keyword) {
                 if (str_contains($lowerText, $keyword)) {
                     return $type;
@@ -239,7 +338,7 @@ class OcrProcessingService
     /**
      * Extract invoice date from OCR text.
      */
-    private function extractInvoiceDate(string $text): ?string
+    private function extractInvoiceDate(string $text, ?string $countryCode = null): ?string
     {
         // Year-first ("2026-08-01") comes first because it is unambiguous, so
         // it wins over any ambiguous "dd/mm/yyyy" fragment found earlier.
@@ -263,8 +362,9 @@ class OcrProcessingService
             // (US) but "01-08-2026" as August 1st (day first).
             $isYearFirst = strlen($first) === 4;
             $year = (int) ($isYearFirst ? $first : $third);
-            $month = (int) ($isYearFirst ? $second : $second);
-            $day = (int) ($isYearFirst ? $third : $first);
+            $usMonthFirst = strtoupper((string) $countryCode) === 'US';
+            $month = (int) ($isYearFirst ? $second : ($usMonthFirst ? $first : $second));
+            $day = (int) ($isYearFirst ? $third : ($usMonthFirst ? $second : $first));
 
             if (! checkdate($month, $day, $year)) {
                 continue;
@@ -276,8 +376,6 @@ class OcrProcessingService
                 return $date->toDateString();
             }
 
-            // A "dd/mm/yyyy" invoice read as month-first may end up in the
-            // future, so retry the swapped day and month before giving up.
             if (! $isYearFirst && checkdate($day, $month, $year)) {
                 $swapped = Carbon::create($year, $day, $month)->startOfDay();
 

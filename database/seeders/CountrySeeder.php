@@ -40,6 +40,33 @@ class CountrySeeder extends Seeder
                 'depreciation_rate_per_km' => 500.00,
                 'is_active' => true,
             ],
+            [
+                'code' => 'EC',
+                'name' => 'Ecuador',
+                'currency_code' => 'USD',
+                'currency_symbol' => '$',
+                'phone_code' => '+593',
+                'depreciation_rate_per_km' => 0.15,
+                'is_active' => true,
+            ],
+            [
+                'code' => 'PE',
+                'name' => 'Peru',
+                'currency_code' => 'PEN',
+                'currency_symbol' => 'S/',
+                'phone_code' => '+51',
+                'depreciation_rate_per_km' => 0.15,
+                'is_active' => true,
+            ],
+            [
+                'code' => 'CL',
+                'name' => 'Chile',
+                'currency_code' => 'CLP',
+                'currency_symbol' => '$',
+                'phone_code' => '+56',
+                'depreciation_rate_per_km' => 0.15,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($countries as $countryData) {

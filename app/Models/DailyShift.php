@@ -79,4 +79,14 @@ class DailyShift extends Model
     {
         return $this->hasMany(DailyEarning::class);
     }
+
+    /**
+     * Get the individual rides associated with this shift.
+     *
+     * @return HasMany<RideTrip, $this>
+     */
+    public function rideTrips(): HasMany
+    {
+        return $this->hasMany(RideTrip::class);
+    }
 }

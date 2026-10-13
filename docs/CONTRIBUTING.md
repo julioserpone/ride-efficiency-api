@@ -44,7 +44,7 @@ specification. The subject line is:
 ```
 
 - **type** — one of the values in the table below.
-- **scope** *(optional)* — the affected area: `shifts`, `fuel-invoices`,
+- **scope** *(optional)* — the affected area: `shifts`, `energy-invoices`,
   `ocr`, `stats`, `auth`, `models`, `config`, `docs`, `ci`, `deps`. Use the
   module or domain concept, not a file name.
 - **summary** — imperative mood ("add", not "added"/"adds"), lowercase, no
@@ -93,7 +93,7 @@ profit target are editable per environment instead of hard-coded.
 ```
 
 ```
-fix(fuel-invoices): keep the OCR language list when Tesseract is missing
+fix(energy-invoices): keep the OCR language list when Tesseract is missing
 
 The service now falls back to the configured languages instead of failing
 with "Failed loading language".

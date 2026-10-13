@@ -2,18 +2,19 @@
 
 namespace App\Support;
 
-use App\Models\FuelInvoice;
+use App\Models\EnergyInvoice;
 use GigEconomics\Domain\Energy\EnergyLog;
 use GigEconomics\Domain\Energy\EnergyPrice;
 use GigEconomics\Domain\Energy\EnergyPurchase;
 use GigEconomics\Domain\Money\Percentage;
 use GigEconomics\Domain\Shared\EnergyQuantity;
 use GigEconomics\Domain\Shared\EnergyType;
+use GigEconomics\Domain\Shared\EnergyUnit;
 use GigEconomics\Support\Configuration;
 use Illuminate\Support\Collection;
 
 /**
- * Translates stored fuel invoices into the library's domain objects.
+ * Translates stored energy invoices into the library's domain objects.
  *
  * This is the single adapter between persistence and the
  * `julioserpone/gig-economics` domain: an invoice row knows about the database,
@@ -22,11 +23,10 @@ use Illuminate\Support\Collection;
  * the controllers never build a domain object by hand.
  *
  * The same factory serves combustion and electric vehicles: the invoice's
- * `energy_type` selects the unit (gallons, litres or kilowatt-hours) and the
- * matching price factory, so a recharge is priced per kilowatt-hour exactly as a
- * refuel is priced per gallon.
+ * explicit `energy_unit` selects the quantity and price factory, while
+ * `energy_type` verifies that the purchase belongs to the same energy dimension.
  */
-final class FuelInvoiceEnergyLogFactory
+final class EnergyInvoiceEnergyLogFactory
 {
     public function __construct(private readonly Configuration $configuration = new Configuration) {}
 
@@ -37,7 +37,7 @@ final class FuelInvoiceEnergyLogFactory
      * can become purchases: anything still being processed has nothing to price
      * yet, and including it would silently skew the weighted price.
      *
-     * @param  Collection<int, FuelInvoice>|array<int, FuelInvoice>  $invoices
+     * @param  Collection<int, EnergyInvoice>|array<int, EnergyInvoice>  $invoices
      */
     public function fromInvoices(Collection|array $invoices): EnergyLog
     {
@@ -57,37 +57,43 @@ final class FuelInvoiceEnergyLogFactory
     /**
      * Build a single purchase, or null when the invoice cannot be priced.
      */
-    public function fromInvoice(FuelInvoice $invoice): ?EnergyPurchase
+    public function fromInvoice(EnergyInvoice $invoice): ?EnergyPurchase
     {
-        $energyAmount = $this->normalizedAmount($invoice->fuel_volume_units);
+        $energyAmount = $this->normalizedAmount($invoice->energy_amount ?? $invoice->fuel_volume_units);
         $unitPrice = $this->normalizedAmount($invoice->unit_price);
+        $energyType = $this->energyTypeFor($invoice);
+        $energyUnit = $invoice->energy_unit;
 
-        if ($energyAmount === null || $unitPrice === null || $invoice->status !== 'completed') {
+        if (
+            $energyAmount === null
+            || $unitPrice === null
+            || $energyType === null
+            || $energyUnit === null
+            || $invoice->status !== 'completed'
+            || $energyType->isElectric() !== $energyUnit->isElectric()
+        ) {
             return null;
         }
 
-        $energyType = $this->energyTypeFor($invoice);
-
         return EnergyPurchase::create(
-            energy: EnergyQuantity::of($energyAmount, $energyType->unit()),
-            unitPrice: $this->priceFor($unitPrice, $energyType),
+            energy: EnergyQuantity::of($energyAmount, $energyUnit),
+            unitPrice: $this->priceFor($unitPrice, $energyUnit),
             purchasedAt: $invoice->invoice_date,
             vendorTaxId: $invoice->vendor_tax_id,
             vendorName: $invoice->vendor_name,
             odometer: $invoice->odometer,
             energyType: $energyType,
             taxRate: $this->taxRateFor($invoice),
-            reference: 'fuel-invoice-'.$invoice->getKey(),
+            reference: 'energy-invoice-'.$invoice->getKey(),
         );
     }
 
     /**
-     * The energy source of an invoice, falling back to the configured default
-     * when the OCR pass did not classify the receipt.
+     * The energy source of an invoice, or null when it has not been classified.
      */
-    public function energyTypeFor(FuelInvoice $invoice): EnergyType
+    public function energyTypeFor(EnergyInvoice $invoice): ?EnergyType
     {
-        return $invoice->energy_type ?? $this->configuration->defaultEnergyType;
+        return $invoice->energy_type;
     }
 
     /**
@@ -95,7 +101,7 @@ final class FuelInvoiceEnergyLogFactory
      * carries its own rate when the OCR pass read it; otherwise the configured
      * default is used so the total stays reproducible.
      */
-    public function taxRateFor(FuelInvoice $invoice): Percentage
+    public function taxRateFor(EnergyInvoice $invoice): Percentage
     {
         $rate = $this->normalizedAmount($invoice->tax_rate);
 
@@ -105,11 +111,12 @@ final class FuelInvoiceEnergyLogFactory
     /**
      * Price of one unit of energy, in the unit the energy type is measured in.
      */
-    private function priceFor(string $amount, EnergyType $energyType): EnergyPrice
+    private function priceFor(string $amount, EnergyUnit $energyUnit): EnergyPrice
     {
-        return match ($energyType) {
-            EnergyType::Electric => EnergyPrice::perKilowattHour($amount),
-            default => EnergyPrice::perGallon($amount),
+        return match ($energyUnit) {
+            EnergyUnit::KilowattHours => EnergyPrice::perKilowattHour($amount),
+            EnergyUnit::Litres => EnergyPrice::perLitre($amount),
+            EnergyUnit::Gallons => EnergyPrice::perGallon($amount),
         };
     }
 

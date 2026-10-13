@@ -32,15 +32,15 @@ All `/api/v1/*` endpoints except token issuance require the `auth:sanctum` middl
 3. **Database Schema Strategy:** Highly normalized relational architecture.
    - `daily_shifts`: Tracks automated metrics (GPS km, connected time, scanned offers) and calculated net metrics (applied fuel cost, depreciation, real net profit).
    - `daily_earnings`: Relational table mapping earnings per platform (Uber, DiDi, etc.) linked to a daily shift.
-   - `fuel_invoices`: Manages uploaded fuel physical receipts and asynchronous OCR data states.
+   - `energy_invoices`: Manages uploaded fuel and electric-energy receipts and asynchronous OCR data states.
 3. **UI/UX Guidelines:** Strict visual parity between Web and Mobile using unified Tailwind/NativeWind color tokens (`#10B981` Emerald for profitable, `#F59E0B` Amber for neutral, `#EF4444` Rose for loss, `#0F172A` Slate dark background). These guidelines apply to the frontend and mobile repositories, not here.
 
 ## Current Project Status
 - Laravel 13 API-only service on PostgreSQL.
-- Domain migrations in place: `users`, `countries`, `daily_shifts`, `daily_earnings`, `fuel_invoices`, `personal_access_tokens`.
+- Domain migrations in place: `users`, `countries`, `daily_shifts`, `daily_earnings`, `energy_invoices`, `personal_access_tokens`.
 - Eloquent models with relationships and factories/seeders for every entity.
 - Sanctum bearer-token authentication for the web and mobile consumers.
-- JSON API v1 complete for shifts, fuel invoices and statistics/efficiency metrics.
+- JSON API v1 complete for shifts, energy invoices and statistics/efficiency metrics.
 - The former Inertia/Vue dashboard and Fortify web auth flow were extracted to `ride-efficiency-frontend`.
 
 ## Spanish / Español
@@ -67,11 +67,11 @@ Sistema para calcular la rentabilidad de conductores de plataformas (Uber, DiDi,
 - **Estructura de Base de Datos:**
     - `daily_shifts`: Métricas automáticas (km GPS, tiempo conectado, ofertas escaneadas) y métricas netas calculadas (costo de gasolina aplicado, depreciación, ganancia neta real).
     - `daily_earnings`: Earnings por plataforma (Uber, DiDi, etc.) vinculados a un turno diario.
-    - `fuel_invoices`: Recibos de gasolina físicos y estados de procesamiento OCR.
+    - `energy_invoices`: Recibos de combustibles y energía eléctrica, además de estados de procesamiento OCR.
 - **UI/UX:** Paridad visual estricta entre Web y Móvil usando tokens unificados de NativeWind (`#10B981` Esmeralda para ganancia, `#F59E0B` Ámbar para neutral, `#EF4444` Rosa para pérdida, fondo oscuro `#0F172A`).
 
 ## Estado Actual
 - Scaffold inicial de Laravel 11 completado.
 - Conexión a base de datos configurada.
-- Migraciones creadas y ejecutadas: `daily_shifts`, `daily_earnings`, `fuel_invoices`.
+- Migraciones creadas y ejecutadas: `daily_shifts`, `daily_earnings`, `energy_invoices`.
 - Tarea actual: Creación de modelos Eloquent con relaciones y desarrollo del `ShiftController` para cierres de turno y cálculos de rentabilidad en tiempo real.

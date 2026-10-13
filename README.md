@@ -1,9 +1,9 @@
 # Ride Efficiency — API
 
 Laravel 13 API-only service for the Ride Efficiency platform. It owns the database and
-exposes JSON endpoints for gig-economy shift profitability: GPS kilometres, connected
-time, per-platform earnings, fuel invoices with OCR extraction, depreciation and net
-profit per shift.
+exposes JSON endpoints for gig-economy profitability: vehicles, individual rides,
+per-platform earnings, fuel and electric-energy invoices with OCR extraction,
+depreciation and net profit.
 
 ## Architecture
 
@@ -47,10 +47,18 @@ POST    /api/v1/shifts                  Start a daily shift
 GET     /api/v1/shifts/{shift}          Show a shift
 POST    /api/v1/shifts/{shift}/close    Close a shift and compute net profit
 
-GET     /api/v1/fuel-invoices           Paginated fuel invoices
-POST    /api/v1/fuel-invoices           Upload a receipt image and queue OCR
-GET     /api/v1/fuel-invoices/{id}      Show a fuel invoice
-DELETE  /api/v1/fuel-invoices/{id}      Delete a fuel invoice
+GET     /api/v1/energy-invoices        Paginated energy invoices
+POST    /api/v1/energy-invoices        Upload an energy receipt image and queue OCR
+GET     /api/v1/energy-invoices/{id}   Show an energy invoice
+DELETE  /api/v1/energy-invoices/{id}   Delete an energy invoice
+PATCH   /api/v1/energy-invoices/{id}/review  Confirm fields when OCR needs review
+
+GET     /api/v1/countries/{code}/energy-products  Country-specific fuel and energy catalog
+GET     /api/v1/vehicles                List active vehicle profiles
+POST    /api/v1/vehicles                Create a vehicle energy/economy profile
+GET     /api/v1/ride-trips              Paginated individual ride profitability
+GET     /api/v1/ride-trips/{id}         Show a calculated ride
+POST    /api/v1/vehicles/{id}/trips     Calculate and save one ride's profitability
 
 GET     /api/v1/stats/weekly            Aggregated metrics, last 8 weeks
 GET     /api/v1/stats/monthly           Aggregated metrics, last 6 months
@@ -63,8 +71,34 @@ GET     /api/v1/stats/efficiency        Profit per km/hour, fuel cost per km
 - `daily_shifts` — automatic metrics (GPS km, connected time, scanned offers) and
   calculated metrics (applied fuel cost, depreciation, real net profit).
 - `daily_earnings` — per-platform earnings (Uber, DiDi, …) belonging to a shift.
-- `fuel_invoices` — uploaded receipt images and their asynchronous OCR state.
+- `energy_invoices` — uploaded fuel/electricity receipts, explicit energy amount/unit,
+  country/product, currency and asynchronous OCR/review state. OCR results needing
+  correction use `review_required` until the driver confirms the invoice.
+
+- `energy_products` — country-specific names and OCR aliases mapped to the general
+  energy types understood by `gig-economics`. The seeded catalog covers the US,
+  Mexico, Colombia, Ecuador, Peru and Chile and can be extended with additional rows.
+- `vehicles` — a user's country, energy type/unit and measured distance per energy unit.
+- `ride_trips` — each trip's platform, distance, fare, itemized costs, net profit,
+  break-even fare and accept/marginal/reject verdict.
 - `countries` — currency and depreciation rate used by profitability calculations.
+
+Invoice endpoints and their backing table use the neutral `energy-invoices` /
+`energy_invoices` names. The former `/api/v1/fuel-invoices` endpoints are removed;
+mobile and web clients must switch to `/api/v1/energy-invoices`.
+
+The ride endpoint accepts `platform_name`, `gross_fare`, `distance_km`, and optional
+`deadhead_distance_km`, `duration_minutes`, `commission_rate`, `other_costs_per_trip`,
+`daily_shift_id` and `energy_price_per_unit`. If no unit-price override is supplied,
+the API uses the latest completed invoice matching the vehicle's country, energy type,
+unit and currency. Unknown marketplace names are treated as custom platforms; pass a
+commission rate when one applies.
+
+Energy units remain explicit end-to-end: combustion receipts can use gallons or litres,
+and electric receipts use kilowatt-hours. Invoice uploads accept an optional `country_id`
+when the purchase took place outside the driver's configured country. The OCR recognizes
+English and Spanish labels and common decimal/thousands separators; uncertain or
+incomplete scans are retained for manual review rather than marked complete.
 
 ## Conventions
 - All code, migrations, variable names, endpoints and comments are written in **English**.

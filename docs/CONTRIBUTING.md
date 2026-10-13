@@ -30,7 +30,9 @@ chore/bump-phpstan
 ```
 
 - Keep the summary short, lowercase and kebab-cased.
-- One logical change per branch. Rebase on `main` before opening the PR.
+- Start from the latest `origin/main`; keep one logical change per branch.
+  Rebase on `origin/main` before opening the PR when the branch has fallen
+  behind.
 - Dependabot branches (`dependabot/composer/...`) are the only exception: they
   are created and named by the bot.
 
@@ -44,7 +46,7 @@ specification. The subject line is:
 ```
 
 - **type** — one of the values in the table below.
-- **scope** *(optional)* — the affected area: `shifts`, `energy-invoices`,
+- **scope** _(optional)_ — the affected area: `shifts`, `energy-invoices`,
   `ocr`, `stats`, `auth`, `models`, `config`, `docs`, `ci`, `deps`. Use the
   module or domain concept, not a file name.
 - **summary** — imperative mood ("add", not "added"/"adds"), lowercase, no
@@ -52,18 +54,18 @@ specification. The subject line is:
 
 ### Types
 
-| Type       | Use for                                                     |
-| ---------- | ----------------------------------------------------------- |
-| `feat`     | A new user-facing capability                                |
-| `fix`      | A bug fix                                                   |
-| `refactor` | A change that neither fixes a bug nor adds a feature        |
-| `perf`     | A change that improves performance                          |
-| `test`     | Adding or correcting tests only                             |
-| `docs`     | Documentation only                                          |
-| `build`    | Build tooling or dependencies (Composer, PHP tooling)       |
-| `ci`       | Continuous-integration configuration                        |
-| `chore`    | Maintenance that fits no other type                         |
-| `style`    | Formatting/whitespace without a behavioural change          |
+| Type       | Use for                                               |
+| ---------- | ----------------------------------------------------- |
+| `feat`     | A new user-facing capability                          |
+| `fix`      | A bug fix                                             |
+| `refactor` | A change that neither fixes a bug nor adds a feature  |
+| `perf`     | A change that improves performance                    |
+| `test`     | Adding or correcting tests only                       |
+| `docs`     | Documentation only                                    |
+| `build`    | Build tooling or dependencies (Composer, PHP tooling) |
+| `ci`       | Continuous-integration configuration                  |
+| `chore`    | Maintenance that fits no other type                   |
+| `style`    | Formatting/whitespace without a behavioural change    |
 
 ### Body and footers
 
@@ -111,16 +113,19 @@ Keep the PR focused on one logical change.
   `feat(shifts): compute net profit with the gig-economics library`.
 - **Description** — start with a one-paragraph summary of the change and the
   problem it solves, then:
-  - **What changed** — a bulleted list of the notable changes.
-  - **Why** — the motivation or the linked issue.
-  - **How to test** — the commands a reviewer runs (`composer test`).
-  - **API impact** — `none`, or the affected endpoints and their new shape. The
-    Vue dashboard (`ride-efficiency-frontend`) and the React Native app
-    (`ride-efficiency-mobile`) consume these responses; a breaking change must
-    be called out at the top and versioned.
-  - **Checklist** — tests added/updated, `composer test` green.
+    - **What changed** — a bulleted list of the notable changes.
+    - **Why** — the motivation or the linked issue.
+    - **How to test** — the commands a reviewer runs (`composer test`).
+    - **API impact** — `none`, or the affected endpoints and their new shape. The
+      Vue dashboard (`ride-efficiency-frontend`) and the React Native app
+      (`ride-efficiency-mobile`) consume these responses; a breaking change must
+      be called out at the top and versioned.
+    - **Checklist** — tests added/updated, `composer test` green, migration and
+      rollout notes included when relevant.
 - **Size** — one logical change. Split unrelated work into separate PRs.
 - **Migrations** — call out any schema change and whether it is reversible.
+- **Cross-repository impact** — identify affected web/mobile clients and
+  coordinate any public contract change with their maintainers.
 
 A pull request is ready to merge only when `composer test` passes (Pint, PHPStan
 and Pest, in that order) and the description explains how the change was

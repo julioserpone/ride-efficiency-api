@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement to the API.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What client or domain need is currently unmet?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the API outcome without prescribing the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: API and data considerations
+      description: Mention affected consumers, response shape, authorization, or migration concerns if known.
+    validations:
+      required: false

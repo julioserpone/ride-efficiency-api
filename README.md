@@ -11,11 +11,11 @@ This repository contains **no web interface**. The only browser-facing route is 
 informational landing page at `/`. All other routes are JSON API endpoints authenticated
 with Laravel Sanctum **personal access tokens** (bearer tokens).
 
-| Repository | Stack | Role |
-| --- | --- | --- |
-| `ride-efficiency-api` (this repo) | Laravel 13, PostgreSQL | Database, models, business logic, JSON API |
-| `ride-efficiency-frontend` | Vue 3 + Vite + PrimeVue | Web dashboard SPA |
-| `ride-efficiency-mobile` | React Native | Mobile app |
+| Repository                        | Stack                   | Role                                       |
+| --------------------------------- | ----------------------- | ------------------------------------------ |
+| `ride-efficiency-api` (this repo) | Laravel 13, PostgreSQL  | Database, models, business logic, JSON API |
+| `ride-efficiency-frontend`        | Vue 3 + Vite + PrimeVue | Web dashboard SPA                          |
+| `ride-efficiency-mobile`          | React Native            | Mobile app                                 |
 
 Both consumers authenticate by requesting a token from `POST /api/v1/auth/token` and
 sending it as an `Authorization: Bearer <token>` header. CORS is configured through the
@@ -34,6 +34,11 @@ sending it as an `Authorization: Bearer <token>` header. CORS is configured thro
 composer setup   # install deps, create .env, generate key, migrate
 composer dev     # serve + queue listener + pail logs
 ```
+
+Requirements: PHP 8.4.1 or newer, Composer 2, and Docker for the default Sail
+PostgreSQL development stack. Keep local environment files and credentials out of
+commits; use synthetic data for development and tests. See [`SECURITY.md`](SECURITY.md)
+before reporting a potential vulnerability.
 
 ## API surface
 
@@ -102,6 +107,7 @@ English and Spanish labels and common decimal/thousands separators; uncertain or
 incomplete scans are retained for manual review rather than marked complete.
 
 ## Conventions
+
 - All code, migrations, variable names, endpoints and comments are written in **English**.
 - Use `php artisan make:*` to scaffold files and `--no-interaction` in scripts.
 - Every change must be covered by a test. Run `php artisan test --compact` (optionally
@@ -109,14 +115,22 @@ incomplete scans are retained for manual review rather than marked complete.
 - Run `vendor/bin/pint --dirty --format agent` after touching PHP files.
 
 ## Guides for contributors and AI assistants
+
 Read these before changing code; they are the source of truth for how work is done
 in this repository:
 
-| Guide | Covers |
-| --- | --- |
-| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Branch model, Conventional Commits, pull requests, definition of done |
+| Guide                                                  | Covers                                                                            |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)         | Branch model, Conventional Commits, pull requests, definition of done             |
 | [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Language, syntax, naming, typing, money handling, Laravel conventions, migrations |
-| [`docs/TESTING.md`](docs/TESTING.md) | Pest layout, conventions, required coverage, how to run the suite |
+| [`docs/TESTING.md`](docs/TESTING.md)                   | Pest layout, conventions, required coverage, how to run the suite                 |
+| [`AGENTS.md`](AGENTS.md)                               | Repository-wide instructions for coding agents                                    |
+| [`.ai/rules/index.md`](.ai/rules/index.md)             | Path-scoped AI rules and rule files to read                                       |
+| [`SECURITY.md`](SECURITY.md)                           | Private vulnerability reporting and supported releases                            |
+
+For changes, run `composer test` (Pint, PHPStan and Pest). Pull requests use the
+checklist in [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md);
+bug and feature issues use the structured forms in `.github/ISSUE_TEMPLATE/`.
 
 ## Deployment
 

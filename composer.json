@@ -111,11 +111,5 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true,
-    "repositories": {
-        "gig-economics": {
-            "type": "vcs",
-            "url": "https://github.com/julioserpone/gig-economics"
-        }
-    }
+    "prefer-stable": true
 }

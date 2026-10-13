@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b291d0701b419f4b802977d95eb65b27",
+    "content-hash": "812cdb3fc7d29f0db7b4c8eac2e05699",
     "packages": [
         {
             "name": "brick/math",
@@ -1096,43 +1096,7 @@
                     "GigEconomics\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "GigEconomics\\Tests\\": "tests/"
-                }
-            },
-            "archive": {
-                "exclude": [
-                    "/tests",
-                    "/docs",
-                    "/.github",
-                    "/AGENTS.md",
-                    "/phpstan.neon",
-                    "/pint.json"
-                ]
-            },
-            "scripts": {
-                "test": [
-                    "@php vendor/bin/pest"
-                ],
-                "test:coverage": [
-                    "@php vendor/bin/pest --coverage"
-                ],
-                "lint": [
-                    "pint"
-                ],
-                "lint:check": [
-                    "pint --test"
-                ],
-                "analyse": [
-                    "phpstan analyse --no-progress"
-                ],
-                "ci": [
-                    "@lint:check",
-                    "@analyse",
-                    "@test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -1144,6 +1108,7 @@
             ],
             "description": "Platform-agnostic, decoupled PHP library to measure fuel efficiency and the real profitability of a trip taken on Uber, DiDi, inDrive, Lyft or any ride-hailing platform.",
             "keywords": [
+                "Uber",
                 "didi",
                 "driver-earnings",
                 "fuel-consumption",
@@ -1153,12 +1118,11 @@
                 "lyft",
                 "profitability",
                 "ride-hailing",
-                "rideshare",
-                "uber"
+                "rideshare"
             ],
             "support": {
-                "source": "https://github.com/julioserpone/gig-economics/tree/v1.0.0",
-                "issues": "https://github.com/julioserpone/gig-economics/issues"
+                "issues": "https://github.com/julioserpone/gig-economics/issues",
+                "source": "https://github.com/julioserpone/gig-economics/tree/v1.0.0"
             },
             "time": "2026-10-12T22:30:12+00:00"
         },

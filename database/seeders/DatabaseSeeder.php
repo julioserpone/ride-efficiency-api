@@ -36,6 +36,9 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        $this->call(EnergyInvoiceCsvSeeder::class);
+        $this->call([
+            DemoShiftSeeder::class,
+            EnergyInvoiceCsvSeeder::class,
+        ]);
     }
 }

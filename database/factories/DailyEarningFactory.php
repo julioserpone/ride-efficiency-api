@@ -23,7 +23,7 @@ class DailyEarningFactory extends Factory
         return [
             'daily_shift_id' => DailyShift::factory(),
             'provider_name' => $this->faker->randomElement(['Uber', 'DiDi', 'Lyft', 'Indrive']),
-            'gross_amount' => $this->faker->randomFloat(2, 30, 200),
+            'gross_amount' => $this->faker->randomFloat(2, 30, 50),
         ];
     }
 }

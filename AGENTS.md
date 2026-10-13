@@ -111,22 +111,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
 - Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
 
-=== api-only rules ===
-
-# API-Only Architecture
-- This repository is the backend only: database schema, Eloquent models, business logic, jobs, and a JSON API. There is **no** web UI here.
-- The only browser-facing route is the informational landing page at `/` (`resources/views/welcome.blade.php`). Do not add Blade views, Inertia pages, or frontend assets to this repository.
-- The web dashboard lives in the separate `ride-efficiency-frontend` repository (Vue 3 + Vite + PrimeVue) and the mobile app in `ride-efficiency-mobile` (React Native).
-
-# Authentication
-- All API routes are protected with `auth:sanctum` and consume Laravel Sanctum **personal access tokens** (bearer tokens). There is no session/stateful SPA auth.
-- Tokens are issued via `POST /api/v1/auth/token` and revoked via `DELETE /api/v1/auth/token`. Only token issuance is unauthenticated (rate limited to `throttle:6,1`).
-- CORS origins are configured through the `CORS_ALLOWED_ORIGINS` environment variable consumed by `config/cors.php`.
-
-# Responses
-- All API endpoints return JSON. Keep response shapes stable — the Vue SPA and the React Native app both depend on them.
-- API versioning lives in the URL prefix (`/api/v1/...`) and in route names (`api.v1.*`).
-
 === laravel/core rules ===
 
 # Do Things the Laravel Way
@@ -157,8 +141,6 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - If you receive an "Illuminate\Foundation\ViteException: Unable to locate file in Vite manifest" error, you can run `npm run build` or ask the user to run `npm run dev` or `composer run dev`.
 
-
-
 === pint/core rules ===
 
 # Laravel Pint Code Formatter
@@ -174,7 +156,5 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
 - Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
-
-
 
 </laravel-boost-guidelines>

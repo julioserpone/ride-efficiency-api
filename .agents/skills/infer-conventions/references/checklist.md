@@ -77,7 +77,7 @@ Each item gives the fork, then a hint (a grep or dir to spot which side the app 
 
 ## F. Frontend & views
 
-This app ships a frontend stack, so the items below apply.
+No Livewire/Inertia/Flux package is installed. This app may be API-only. Confirm from `resources/views` before sweeping, and treat the Livewire/Flux dimensions as not applicable.
 
 28. Frontend stack: Blade+Livewire vs Inertia (Vue/React/Svelte) vs Blade-only / API + separate SPA.
     - Hint: `composer.json` + `package.json`; `ls resources/js/pages`, `resources/views`.

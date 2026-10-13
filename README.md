@@ -67,12 +67,21 @@ GET     /api/v1/stats/efficiency        Profit per km/hour, fuel cost per km
 - `countries` — currency and depreciation rate used by profitability calculations.
 
 ## Conventions
-
 - All code, migrations, variable names, endpoints and comments are written in **English**.
 - Use `php artisan make:*` to scaffold files and `--no-interaction` in scripts.
 - Every change must be covered by a test. Run `php artisan test --compact` (optionally
   with `--filter=` to narrow the scope).
 - Run `vendor/bin/pint --dirty --format agent` after touching PHP files.
+
+## Guides for contributors and AI assistants
+Read these before changing code; they are the source of truth for how work is done
+in this repository:
+
+| Guide | Covers |
+| --- | --- |
+| [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) | Branch model, Conventional Commits, pull requests, definition of done |
+| [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) | Language, syntax, naming, typing, money handling, Laravel conventions, migrations |
+| [`docs/TESTING.md`](docs/TESTING.md) | Pest layout, conventions, required coverage, how to run the suite |
 
 ## Deployment
 

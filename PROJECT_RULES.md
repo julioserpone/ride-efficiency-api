@@ -28,7 +28,8 @@ All `/api/v1/*` endpoints except token issuance require the `auth:sanctum` middl
 
 ## Coding Standards & Rules
 1. **Language Standard:** ALL code, database schemas, migration files, variable names, method definitions, API endpoints, and code comments MUST be written exclusively in **English**.
-2. **Database Schema Strategy:** Highly normalized relational architecture.
+2. **Committed guides:** Before making changes, read [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) (branch model and Conventional Commits), [`docs/CODING_STANDARDS.md`](docs/CODING_STANDARDS.md) (syntax, naming, typing, money handling) and [`docs/TESTING.md`](docs/TESTING.md) (Pest conventions and required coverage). Commit messages follow `<type>(<scope>): <imperative summary>` in English, with no trailing period; never commit directly to `main`.
+3. **Database Schema Strategy:** Highly normalized relational architecture.
    - `daily_shifts`: Tracks automated metrics (GPS km, connected time, scanned offers) and calculated net metrics (applied fuel cost, depreciation, real net profit).
    - `daily_earnings`: Relational table mapping earnings per platform (Uber, DiDi, etc.) linked to a daily shift.
    - `fuel_invoices`: Manages uploaded fuel physical receipts and asynchronous OCR data states.

@@ -53,6 +53,7 @@ GET     /api/v1/energy-invoices/{id}   Show an energy invoice
 DELETE  /api/v1/energy-invoices/{id}   Delete an energy invoice
 PATCH   /api/v1/energy-invoices/{id}/review  Confirm fields when OCR needs review
 
+GET     /api/v1/countries              Active countries and currency metadata
 GET     /api/v1/countries/{code}/energy-products  Country-specific fuel and energy catalog
 GET     /api/v1/vehicles                List active vehicle profiles
 POST    /api/v1/vehicles                Create a vehicle energy/economy profile

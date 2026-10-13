@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\Country;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,11 +22,23 @@ class DatabaseSeeder extends Seeder
             EnergyProductSeeder::class,
         ]);
 
-        // User::factory(10)->create();
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $country = Country::query()->where('code', 'EC')->firstOrFail();
+        User::query()->updateOrCreate(
+            ['email' => 'test@example.com'],
+            [
+                'name' => 'Test User',
+                'country_id' => $country->id,
+                'password' => Hash::make('password'),
+            ],
+        );
+
+        $this->call([
+            DemoShiftSeeder::class,
+            EnergyInvoiceCsvSeeder::class,
         ]);
     }
 }

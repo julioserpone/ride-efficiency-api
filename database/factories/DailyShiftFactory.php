@@ -20,8 +20,8 @@ class DailyShiftFactory extends Factory
      */
     public function definition(): array
     {
-        $km = $this->faker->randomFloat(2, 20, 250);
-        $fuelCost = $this->faker->randomFloat(2, 10, 40);
+        $km = $this->faker->randomFloat(2, 20, 120);
+        $fuelCost = $this->faker->randomFloat(2, 4, 15);
         $depreciation = round($km * 0.15, 2);
 
         return [

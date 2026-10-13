@@ -43,3 +43,28 @@ test('authenticated users can retrieve a country energy product catalog', functi
             'energy_unit' => 'gallons',
         ]);
 });
+
+test('authenticated users can retrieve active countries with their database ids', function () {
+    $activeCountry = Country::factory()->create([
+        'name' => 'Ecuador',
+        'code' => 'EC',
+        'currency_code' => 'USD',
+        'currency_symbol' => '$',
+        'is_active' => true,
+    ]);
+    Country::factory()->create(['name' => 'Inactive country', 'is_active' => false]);
+    Sanctum::actingAs(User::factory()->create());
+
+    $this->getJson('/api/v1/countries')
+        ->assertOk()
+        ->assertJsonPath('countries.0.id', $activeCountry->id)
+        ->assertJsonPath('countries.0.code', 'EC')
+        ->assertJsonPath('countries.0.name', 'Ecuador')
+        ->assertJsonPath('countries.0.currency_code', 'USD')
+        ->assertJsonPath('countries.0.currency_symbol', '$')
+        ->assertJsonCount(1, 'countries');
+});
+
+test('country catalog requires authentication', function () {
+    $this->getJson('/api/v1/countries')->assertUnauthorized();
+});

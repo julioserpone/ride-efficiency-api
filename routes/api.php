@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthTokenController;
+use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\EnergyInvoiceController;
 use App\Http\Controllers\Api\EnergyProductController;
 use App\Http\Controllers\Api\RideTripController;
@@ -22,6 +23,9 @@ Route::prefix('v1')->group(function () {
         ->name('api.v1.auth.token.destroy');
 });
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    // Countries
+    Route::get('/countries', [CountryController::class, 'index'])->name('api.v1.countries.index');
+
     // Shifts
     Route::get('/shifts', [ShiftController::class, 'index'])->name('api.v1.shifts.index');
     Route::post('/shifts', [ShiftController::class, 'store'])->name('api.v1.shifts.store');

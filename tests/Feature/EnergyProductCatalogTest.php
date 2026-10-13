@@ -40,6 +40,6 @@ test('authenticated users can retrieve a country energy product catalog', functi
             'code' => 'ecopais',
             'name' => 'Ecopaís',
             'energy_type' => EnergyType::RegularGasoline->value,
-            'energy_unit' => 'litres',
+            'energy_unit' => 'gallons',
         ]);
 });

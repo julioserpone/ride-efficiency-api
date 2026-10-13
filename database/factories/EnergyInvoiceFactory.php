@@ -90,7 +90,9 @@ class EnergyInvoiceFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'country_id' => $country->id,
             'currency_code' => $country->currency_code,
-            'energy_unit' => $country->code === 'US' ? EnergyUnit::Gallons : EnergyUnit::Litres,
+            'energy_unit' => in_array($country->code, ['US', 'EC'], true)
+                ? EnergyUnit::Gallons
+                : EnergyUnit::Litres,
             'energy_amount' => $attributes['fuel_volume_units'] ?? null,
         ]);
     }

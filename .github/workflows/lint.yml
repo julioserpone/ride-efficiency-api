@@ -47,3 +47,9 @@ jobs:
         run: composer types:check
       - name: Run Pint
         run: composer lint:check
+      - name: Prepare Environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      - name: Run Tests
+        run: composer ci:check

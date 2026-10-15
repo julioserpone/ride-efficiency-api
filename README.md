@@ -40,6 +40,19 @@ PostgreSQL development stack. Keep local environment files and credentials out o
 commits; use synthetic data for development and tests. See [`SECURITY.md`](SECURITY.md)
 before reporting a potential vulnerability.
 
+The Sail image is built from the repository's [Dockerfile](docker/8.5/Dockerfile),
+which includes Tesseract with English (`eng`) and Spanish (`spa`) language data.
+After changing the Dockerfile or recreating the application image, rebuild and verify it:
+
+```bash
+docker compose build laravel.test
+docker compose up -d --force-recreate laravel.test
+docker compose exec laravel.test tesseract --list-langs
+```
+
+The language list should include both `eng` and `spa`. The `types:check` Composer
+script sets PHPStan's analysis limit to 512 MB, so `composer test` uses it automatically.
+
 ## API surface
 
 ```

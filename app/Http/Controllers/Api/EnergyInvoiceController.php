@@ -9,10 +9,13 @@ use App\Jobs\ProcessEnergyInvoiceOcrJob;
 use App\Models\Country;
 use App\Models\EnergyInvoice;
 use App\Models\EnergyProduct;
+use App\Services\VendorResolver;
 use GigEconomics\Domain\Shared\EnergyType;
 use GigEconomics\Domain\Shared\EnergyUnit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +28,7 @@ class EnergyInvoiceController extends Controller
     {
         $invoices = $request->user()
             ->energyInvoices()
+            ->with(['vendor', 'items.energyProduct'])
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -75,14 +79,19 @@ class EnergyInvoiceController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        return response()->json(['invoice' => $energyInvoice]);
+        return response()->json([
+            'invoice' => $energyInvoice->load(['vendor', 'items.energyProduct']),
+        ]);
     }
 
     /**
      * Save driver-confirmed fields when OCR could not fully classify an invoice.
      */
-    public function review(ReviewEnergyInvoiceRequest $request, EnergyInvoice $energyInvoice): JsonResponse
-    {
+    public function review(
+        ReviewEnergyInvoiceRequest $request,
+        EnergyInvoice $energyInvoice,
+        VendorResolver $vendorResolver,
+    ): JsonResponse {
         if ($energyInvoice->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
@@ -116,26 +125,94 @@ class EnergyInvoiceController extends Controller
         }
 
         $isElectric = $attributes['energy_unit'] === EnergyUnit::KilowattHours->value;
-
-        $energyInvoice->update([
-            'country_id' => $country->id,
-            'energy_product_id' => $product?->id,
-            'energy_type' => $attributes['energy_type'],
-            'energy_unit' => $attributes['energy_unit'],
-            'energy_amount' => $attributes['energy_amount'],
-            'fuel_volume_units' => $isElectric ? null : $attributes['energy_amount'],
-            'unit_price' => $attributes['unit_price'],
-            'total_amount_paid' => $attributes['total_amount_paid'] ?? $energyInvoice->total_amount_paid,
-            'currency_code' => $country->currency_code,
-            'fuel_type' => $attributes['fuel_type'] ?? $product->name ?? $energyInvoice->fuel_type,
-            'tax_rate' => $attributes['tax_rate'] ?? 0,
-            'invoice_date' => $attributes['invoice_date'] ?? $energyInvoice->invoice_date,
-            'status' => 'completed',
+        $invoiceDetails = Arr::only($attributes, [
+            'vendor_name',
+            'vendor_tax_id',
+            'vendor_address',
+            'station_name',
+            'station_brand',
+            'customer_name',
+            'customer_tax_id',
+            'customer_email',
+            'payment_method',
+            'vehicle_plate',
+            'invoice_number',
+            'authorization_number',
+            'subtotal_amount',
+            'tax_amount',
+            'total_amount_without_subsidy',
         ]);
+
+        DB::transaction(function () use (
+            $energyInvoice,
+            $attributes,
+            $country,
+            $product,
+            $isElectric,
+            $invoiceDetails,
+            $vendorResolver,
+        ): void {
+            $vendorId = $energyInvoice->vendor_id;
+
+            if (array_key_exists('vendor_tax_id', $attributes)) {
+                $vendor = $vendorResolver->resolve($country, [
+                    'tax_id' => $attributes['vendor_tax_id'],
+                    'legal_name' => $attributes['vendor_name'] ?? $energyInvoice->vendor_name,
+                    'commercial_name' => $attributes['vendor_commercial_name']
+                        ?? $energyInvoice->vendor?->commercial_name,
+                    'address' => $attributes['vendor_address'] ?? $energyInvoice->vendor_address,
+                ], overwrite: true);
+                $vendorId = $vendor?->id;
+            } elseif (array_key_exists('vendor_name', $attributes)
+                || array_key_exists('vendor_commercial_name', $attributes)
+                || array_key_exists('vendor_address', $attributes)) {
+                $vendor = $energyInvoice->vendor;
+
+                if ($vendor !== null) {
+                    $vendor->update(array_filter([
+                        'legal_name' => $attributes['vendor_name'] ?? null,
+                        'commercial_name' => $attributes['vendor_commercial_name'] ?? null,
+                        'address' => $attributes['vendor_address'] ?? null,
+                    ], static fn (?string $value): bool => $value !== null));
+                }
+            }
+
+            $energyInvoice->update([
+                'country_id' => $country->id,
+                'vendor_id' => $vendorId,
+                'energy_product_id' => $product?->id,
+                'energy_type' => $attributes['energy_type'],
+                'energy_unit' => $attributes['energy_unit'],
+                'energy_amount' => $attributes['energy_amount'],
+                'fuel_volume_units' => $isElectric ? null : $attributes['energy_amount'],
+                'unit_price' => $attributes['unit_price'],
+                'total_amount_paid' => $attributes['total_amount_paid'] ?? $energyInvoice->total_amount_paid,
+                'currency_code' => $country->currency_code,
+                'fuel_type' => $attributes['fuel_type'] ?? $product->name ?? $energyInvoice->fuel_type,
+                'tax_rate' => $attributes['tax_rate'] ?? 0,
+                'invoice_date' => $attributes['invoice_date'] ?? $energyInvoice->invoice_date,
+                'status' => 'completed',
+                ...$invoiceDetails,
+            ]);
+
+            if (isset($attributes['items'])) {
+                $energyInvoice->items()->delete();
+                $items = [];
+
+                foreach ($attributes['items'] as $item) {
+                    $items[] = [
+                        ...$item,
+                        'line_number' => count($items) + 1,
+                    ];
+                }
+
+                $energyInvoice->items()->createMany($items);
+            }
+        });
 
         return response()->json([
             'message' => 'Energy invoice review saved successfully.',
-            'invoice' => $energyInvoice->fresh(),
+            'invoice' => $energyInvoice->fresh()->load(['vendor', 'items.energyProduct']),
         ]);
     }
 

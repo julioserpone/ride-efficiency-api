@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Country;
 use App\Models\EnergyProduct;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
 class EnergyProductResolver
@@ -17,12 +18,47 @@ class EnergyProductResolver
             return null;
         }
 
-        $normalizedText = Str::ascii(mb_strtolower($rawText));
         $products = EnergyProduct::query()
             ->where('country_id', $country->id)
             ->where('is_active', true)
             ->get();
 
+        return $this->match($products, $rawText);
+    }
+
+    /**
+     * Resolve several item descriptions against one country catalog query.
+     *
+     * @param  list<string>  $descriptions
+     * @return list<EnergyProduct|null>
+     */
+    public function resolveMany(?Country $country, array $descriptions): array
+    {
+        if ($country === null) {
+            return array_fill(0, count($descriptions), null);
+        }
+
+        $products = EnergyProduct::query()
+            ->where('country_id', $country->id)
+            ->where('is_active', true)
+            ->get();
+
+        return array_map(
+            fn (string $description): ?EnergyProduct => $this->match($products, $description),
+            $descriptions,
+        );
+    }
+
+    /**
+     * @param  Collection<int, EnergyProduct>  $products
+     */
+    private function match(Collection $products, string $rawText): ?EnergyProduct
+    {
+        if (trim($rawText) === '') {
+            return null;
+        }
+
+        $normalizedText = Str::ascii(mb_strtolower($rawText));
         $matches = [];
 
         foreach ($products as $product) {

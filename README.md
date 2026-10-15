@@ -78,8 +78,15 @@ GET     /api/v1/stats/efficiency        Profit per km/hour, fuel cost per km
   calculated metrics (applied fuel cost, depreciation, real net profit).
 - `daily_earnings` — per-platform earnings (Uber, DiDi, …) belonging to a shift.
 - `energy_invoices` — uploaded fuel/electricity receipts, explicit energy amount/unit,
-  country/product, currency and asynchronous OCR/review state. OCR results needing
-  correction use `review_required` until the driver confirms the invoice.
+  country/product, currency and asynchronous OCR/review state. Supplier references
+  `vendors`; extracted invoice lines are stored separately in `energy_invoice_items`.
+  OCR results needing correction use `review_required` until the driver confirms the
+  invoice.
+- `vendors` — a shared supplier catalog, matched by country and normalized tax
+  identifier, with separate legal and commercial names and a supplier address.
+- `energy_invoice_items` — one row per receipt line, including its description, product,
+  quantity/unit, unit prices, subsidy and line totals. An invoice can have multiple
+  items without collapsing different products into one energy quantity.
 
 - `energy_products` — country-specific names and OCR aliases mapped to the general
   energy types understood by `gig-economics`. The seeded catalog covers the US,
@@ -104,7 +111,24 @@ Energy units remain explicit end-to-end: combustion receipts can use gallons or 
 and electric receipts use kilowatt-hours. Invoice uploads accept an optional `country_id`
 when the purchase took place outside the driver's configured country. The OCR recognizes
 English and Spanish labels and common decimal/thousands separators; uncertain or
-incomplete scans are retained for manual review rather than marked complete.
+incomplete scans are retained for manual review rather than marked complete. Invoice
+records retain supplier and service-station details, customer identity (separate from the
+authenticated user), vehicle plate, payment method, invoice identifiers, and invoice-level
+tax totals. Invoice JSON exposes the normalized supplier as `vendor` (including
+`legal_name`, `commercial_name` and `address`) and its separate line items as `items`.
+Each item can include `product_description`, `item_code`, `quantity`, `quantity_unit`,
+`unit_price`, `unit_price_without_subsidy`, `subsidy_amount`, `subtotal_amount`,
+`tax_rate`, `tax_amount`, `total_amount` and `total_amount_without_subsidy`. Invoice-level
+fields include `vendor_name`, `vendor_tax_id`, `vendor_address`, `station_name`,
+`station_brand`, `customer_name`, `customer_tax_id`, `customer_email`, `vehicle_plate`,
+`payment_method`, `invoice_number`, `authorization_number`, `subtotal_amount`,
+`tax_amount`, `tax_rate` and `total_amount_without_subsidy`. Station brand and other
+fields remain nullable when they are not printed or cannot be read; the OCR does not
+infer them. The `PATCH /api/v1/energy-invoices/{id}/review` endpoint accepts optional
+corrected values, including a list of `items`. `customer_name` and `customer_tax_id`
+describe the billed party and are not assumed to belong to the authenticated driver.
+Item-specific fields previously returned at invoice level now belong to `items`; web and
+mobile consumers must read them there.
 
 ## Conventions
 

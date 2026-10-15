@@ -39,7 +39,7 @@ class EnergyProductSeeder extends Seeder
             'EC' => [
                 ['code' => 'extra', 'name' => 'Extra', 'energy_type' => 'regular_gasoline', 'energy_unit' => 'gallons', 'aliases' => ['extra', 'gasolina extra']],
                 ['code' => 'ecopais', 'name' => 'Ecopaís', 'energy_type' => 'regular_gasoline', 'energy_unit' => 'gallons', 'aliases' => ['ecopais', 'ecopaís']],
-                ['code' => 'super', 'name' => 'Súper', 'energy_type' => 'premium_gasoline', 'energy_unit' => 'gallons', 'aliases' => ['super', 'súper', 'gasolina super', 'gasolina súper']],
+                ['code' => 'super', 'name' => 'Súper', 'energy_type' => 'premium_gasoline', 'energy_unit' => 'gallons', 'aliases' => ['super', 'súper', 'gasolina super', 'gasolina súper', 'super v-power', 'super v power', 'v-power', '95 octanos']],
                 ['code' => 'diesel', 'name' => 'Diesel', 'energy_type' => 'diesel', 'energy_unit' => 'gallons', 'aliases' => ['diesel', 'diésel']],
                 ['code' => 'electric', 'name' => 'Electric charging', 'energy_type' => 'electric', 'energy_unit' => 'kwh', 'aliases' => ['kwh', 'kilowatt hour', 'carga eléctrica', 'electric charging']],
             ],

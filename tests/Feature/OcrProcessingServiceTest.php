@@ -5,10 +5,13 @@ use App\Models\Country;
 use App\Models\EnergyInvoice;
 use App\Models\EnergyProduct;
 use App\Models\User;
+use App\Models\Vendor;
 use App\Services\EnergyProductResolver;
 use App\Services\OcrProcessingService;
+use App\Services\VendorResolver;
 use GigEconomics\Domain\Shared\EnergyType;
 use GigEconomics\Domain\Shared\EnergyUnit;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use thiagoalessio\TesseractOCR\Option;
@@ -30,6 +33,53 @@ function fuelInvoiceOcrText(): string
     TEXT;
 }
 
+/**
+ * Synthetic Ecuadorian invoice text for testing field classification.
+ */
+function detailedSpanishInvoiceOcrText(): string
+{
+    return <<<'TEXT'
+    COMERCIAL DE PRUEBA S.A.
+    9999999999999
+    Av. Ejemplo 100 y Calle Ficticia
+    ESTACION DE SERVICIO AMAZONAS
+    Nombre Comercial: MARCA DE PRUEBA
+    Cliente: CLIENTE DE PRUEBA
+    RUC/CI: 9999999999
+    Email: cliente@example.test
+    Fecha: 09/10/2026 01:17:49
+    Factura No.: 001-002-000000123
+    Forma Pago: Efectivo
+    Placa: TEST123
+    Art.: SUPER V-POWER Cod.: 0103
+    6,25 4,17 4,17 0,00 26,09
+    SubTotal $ 26,09
+    IVA (15%) $ 3,91
+    Total $ 30,00
+    Val Tot Sin Sub: 29,99
+    Ahorro por Sub: 0,00
+    Clave Acceso/No Autorizacion
+    9102026010999999999999999999999999999999999999999
+    TEXT;
+}
+
+/**
+ * Synthetic invoice text with two product lines in a tabular layout.
+ */
+function multipleItemsInvoiceOcrText(): string
+{
+    return <<<'TEXT'
+    GAS STATION SAMPLE LTD
+    TAX ID: 999000111
+    CANT. DESCRIPCION P SIN SUB PREC UNIT SUB STDIO SUBTOTAL
+    2,00 SUPER 4,00 4,00 0,00 8,00
+    3,00 SUPER 4,00 4,00 0,00 12,00
+    SUBTOTAL 20,00
+    IVA (15%) 3,00
+    TOTAL 23,00
+    TEXT;
+}
+
 test('processImage extracts every fuel invoice field from the OCR text', function () {
     $service = new class extends OcrProcessingService
     {
@@ -45,7 +95,70 @@ test('processImage extracts every fuel invoice field from the OCR text', functio
         ->and($result['total_amount_paid'])->toBe(599.25)
         ->and($result['fuel_volume_units'])->toBe(25.50)
         ->and($result['fuel_type'])->toBe('Magna')
-        ->and($result['invoice_date'])->toBe('2026-08-01');
+        ->and($result['invoice_date'])->toBe('2026-08-01 14:32:00');
+});
+
+test('processImage classifies the invoice identity and tax breakdown without mixing totals', function () {
+    Carbon::setTestNow('2026-10-15 12:00:00');
+    $service = new class extends OcrProcessingService
+    {
+        public function extractTextFromImage(string $imagePath): string
+        {
+            return detailedSpanishInvoiceOcrText();
+        }
+    };
+
+    $result = $service->processImage('/tmp/receipt.jpg', 'EC');
+
+    Carbon::setTestNow();
+
+    expect($result['total_amount_paid'])->toBe(30.0)
+        ->and($result['energy_amount'])->toBe(6.25)
+        ->and($result['unit_price'])->toBe(4.17)
+        ->and($result['tax_rate'])->toBe(15.0)
+        ->and($result['invoice_date'])->toBe('2026-10-09 01:17:49')
+        ->and($result['vendor_name'])->toBe('COMERCIAL DE PRUEBA S.A.')
+        ->and($result['vendor_tax_id'])->toBe('9999999999999')
+        ->and($result['vendor_address'])->toBe('Av. Ejemplo 100 y Calle Ficticia')
+        ->and($result['vendor_commercial_name'])->toBe('MARCA DE PRUEBA')
+        ->and($result['station_name'])->toBe('AMAZONAS')
+        ->and($result['station_brand'])->toBeNull()
+        ->and($result['customer_name'])->toBe('CLIENTE DE PRUEBA')
+        ->and($result['customer_tax_id'])->toBe('9999999999')
+        ->and($result['customer_email'])->toBe('cliente@example.test')
+        ->and($result['payment_method'])->toBe('Efectivo')
+        ->and($result['vehicle_plate'])->toBe('TEST123')
+        ->and($result['invoice_number'])->toBe('001-002-000000123')
+        ->and($result['authorization_number'])->toBe('9102026010999999999999999999999999999999999999999')
+        ->and($result['items'])->toHaveCount(1)
+        ->and($result['items'][0]['product_description'])->toBe('SUPER V-POWER')
+        ->and($result['items'][0]['item_code'])->toBe('0103')
+        ->and($result['items'][0]['quantity'])->toBe(6.25)
+        ->and($result['items'][0]['unit_price'])->toBe(4.17)
+        ->and($result['subtotal_amount'])->toBe(26.09)
+        ->and($result['tax_amount'])->toBe(3.91)
+        ->and($result['total_amount_without_subsidy'])->toBe(29.99);
+});
+
+test('processImage extracts every row from a multi-item invoice table', function () {
+    $service = new class extends OcrProcessingService
+    {
+        public function extractTextFromImage(string $imagePath): string
+        {
+            return multipleItemsInvoiceOcrText();
+        }
+    };
+
+    $result = $service->processImage('/tmp/receipt.jpg', 'EC');
+
+    expect($result['items'])->toHaveCount(2)
+        ->and($result['items'][0]['product_description'])->toBe('SUPER')
+        ->and($result['items'][0]['quantity'])->toBe(2.0)
+        ->and($result['items'][0]['subtotal_amount'])->toBe(8.0)
+        ->and($result['items'][1]['quantity'])->toBe(3.0)
+        ->and($result['items'][1]['subtotal_amount'])->toBe(12.0)
+        ->and($result['energy_amount'])->toBeNull()
+        ->and($result['unit_price'])->toBeNull();
 });
 
 test('processImage extracts electric energy and localized English and Spanish amounts', function () {
@@ -192,7 +305,7 @@ test('the ocr job stores the extracted data on the energy invoice', function () 
         }
     };
 
-    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver);
+    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver, new VendorResolver);
 
     $invoice->refresh();
 
@@ -206,7 +319,121 @@ test('the ocr job stores the extracted data on the energy invoice', function () 
         ->and((float) $invoice->unit_price)->toBe(23.5)
         ->and((float) $invoice->fuel_volume_units)->toBe(25.50)
         ->and($invoice->fuel_type)->toBe('Magna')
-        ->and($invoice->invoice_date->toDateString())->toBe('2026-08-01');
+        ->and($invoice->invoice_date->format('Y-m-d H:i:s'))->toBe('2026-08-01 14:32:00');
+});
+
+test('the ocr job persists the classified invoice identity and tax breakdown', function () {
+    Carbon::setTestNow('2026-10-15 12:00:00');
+    Storage::fake('local');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create(['code' => 'EC', 'currency_code' => 'USD']);
+    EnergyProduct::query()->create([
+        'country_id' => $country->id,
+        'code' => 'super',
+        'name' => 'Súper',
+        'energy_type' => EnergyType::PremiumGasoline,
+        'energy_unit' => EnergyUnit::Gallons,
+        'aliases' => ['super v-power'],
+        'is_active' => true,
+    ]);
+    $invoice = EnergyInvoice::factory()->for($user)->create([
+        'country_id' => $country->id,
+        'image_path' => "energy_invoices/{$user->id}/detailed.jpg",
+        'status' => 'pending',
+    ]);
+    Storage::disk('local')->put($invoice->image_path, 'fake-image-bytes');
+
+    $service = new class extends OcrProcessingService
+    {
+        public function extractTextFromImage(string $imagePath): string
+        {
+            return detailedSpanishInvoiceOcrText();
+        }
+    };
+
+    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver, new VendorResolver);
+
+    $invoice->refresh();
+    Carbon::setTestNow();
+
+    expect($invoice->status)->toBe('completed')
+        ->and($invoice->vendor_name)->toBe('COMERCIAL DE PRUEBA S.A.')
+        ->and($invoice->vendor_tax_id)->toBe('9999999999999')
+        ->and($invoice->vendor_address)->toBe('Av. Ejemplo 100 y Calle Ficticia')
+        ->and($invoice->station_name)->toBe('AMAZONAS')
+        ->and($invoice->vendor->commercial_name)->toBe('MARCA DE PRUEBA')
+        ->and($invoice->station_brand)->toBeNull()
+        ->and($invoice->customer_name)->toBe('CLIENTE DE PRUEBA')
+        ->and($invoice->customer_tax_id)->toBe('9999999999')
+        ->and($invoice->customer_email)->toBe('cliente@example.test')
+        ->and($invoice->payment_method)->toBe('Efectivo')
+        ->and($invoice->vehicle_plate)->toBe('TEST123')
+        ->and($invoice->invoice_number)->toBe('001-002-000000123')
+        ->and($invoice->authorization_number)->toBe('9102026010999999999999999999999999999999999999999')
+        ->and($invoice->items)->toHaveCount(1)
+        ->and($invoice->items[0]->product_description)->toBe('SUPER V-POWER')
+        ->and($invoice->items[0]->item_code)->toBe('0103')
+        ->and($invoice->items[0]->unit_price_without_subsidy)->toBe('4.1700')
+        ->and($invoice->items[0]->subsidy_amount)->toBe('0.00')
+        ->and($invoice->subtotal_amount)->toBe('26.09')
+        ->and($invoice->tax_amount)->toBe('3.91')
+        ->and($invoice->tax_rate)->toBe('15.00')
+        ->and($invoice->total_amount_without_subsidy)->toBe('29.99')
+        ->and($invoice->invoice_date->format('Y-m-d H:i:s'))->toBe('2026-10-09 01:17:49');
+});
+
+test('the ocr job stores multiple invoice items and reuses the supplier master', function () {
+    Storage::fake('local');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create(['code' => 'EC', 'currency_code' => 'USD']);
+    $product = EnergyProduct::query()->create([
+        'country_id' => $country->id,
+        'code' => 'super',
+        'name' => 'Súper',
+        'energy_type' => EnergyType::PremiumGasoline,
+        'energy_unit' => EnergyUnit::Gallons,
+        'aliases' => ['super'],
+        'is_active' => true,
+    ]);
+    $invoices = EnergyInvoice::factory()->count(2)->for($user)->create([
+        'country_id' => $country->id,
+        'status' => 'pending',
+    ]);
+    $service = new class extends OcrProcessingService
+    {
+        public function extractTextFromImage(string $imagePath): string
+        {
+            return multipleItemsInvoiceOcrText();
+        }
+    };
+    $vendorResolver = new VendorResolver;
+
+    foreach ($invoices as $invoice) {
+        Storage::disk('local')->put($invoice->image_path, 'fake-image-bytes');
+        (new ProcessEnergyInvoiceOcrJob($invoice))->handle(
+            $service,
+            new EnergyProductResolver,
+            $vendorResolver,
+        );
+    }
+
+    $invoices = $invoices->map(fn (EnergyInvoice $invoice): EnergyInvoice => $invoice->fresh(['vendor', 'items']));
+
+    expect(Vendor::query()->count())->toBe(1)
+        ->and($invoices[0]->vendor_id)->toBe($invoices[1]->vendor_id)
+        ->and($invoices[0]->vendor->legal_name)->toBe('GAS STATION SAMPLE LTD')
+        ->and($invoices[0]->status)->toBe('completed')
+        ->and($invoices[0]->energy_amount)->toBe('5.000')
+        ->and($invoices[0]->energy_product_id)->toBe($product->id)
+        ->and($invoices[0]->items)->toHaveCount(2)
+        ->and($invoices[0]->items[0]->line_number)->toBe(1)
+        ->and($invoices[0]->items[0]->quantity)->toBe('2.0000')
+        ->and($invoices[0]->items[0]->subtotal_amount)->toBe('8.00')
+        ->and($invoices[0]->items[1]->line_number)->toBe(2)
+        ->and($invoices[0]->items[1]->quantity)->toBe('3.0000')
+        ->and($invoices[0]->items[1]->subtotal_amount)->toBe('12.00');
 });
 
 test('the ocr job requires review instead of completing an unreadable invoice', function () {
@@ -229,7 +456,7 @@ test('the ocr job requires review instead of completing an unreadable invoice', 
         }
     };
 
-    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver);
+    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver, new VendorResolver);
 
     expect($invoice->fresh()->status)->toBe('review_required')
         ->and($invoice->fresh()->energy_type)->toBeNull();
@@ -264,7 +491,7 @@ test('the ocr job requires review when a product conflicts with the printed unit
         }
     };
 
-    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver);
+    (new ProcessEnergyInvoiceOcrJob($invoice))->handle($service, new EnergyProductResolver, new VendorResolver);
 
     expect($invoice->fresh()->status)->toBe('review_required')
         ->and($invoice->fresh()->energy_unit)->toBe(EnergyUnit::Litres);

@@ -47,6 +47,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $invoice_date
  * @property string $status
  * @property string|null $ocr_raw_text
+ * @property string $ocr_provider
+ * @property array<string, mixed>|null $ocr_request_data
+ * @property array<string, mixed>|null $ocr_response_data
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
@@ -84,6 +87,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'invoice_date',
     'status',
     'ocr_raw_text',
+    'ocr_provider',
+    'ocr_request_data',
+    'ocr_response_data',
 ])]
 class EnergyInvoice extends Model
 {
@@ -107,6 +113,8 @@ class EnergyInvoice extends Model
             'subtotal_amount' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'total_amount_without_subsidy' => 'decimal:2',
+            'ocr_request_data' => 'encrypted:array',
+            'ocr_response_data' => 'encrypted:array',
             'energy_type' => EnergyType::class,
             'energy_unit' => EnergyUnit::class,
             'invoice_date' => 'datetime',

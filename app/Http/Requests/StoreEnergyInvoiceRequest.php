@@ -23,7 +23,8 @@ class StoreEnergyInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'image' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'image' => ['required_without:image_base64', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+            'image_base64' => ['required_without:image', 'string', 'max:14000000'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'invoice_date' => ['nullable', 'date', 'before_or_equal:today'],
             'notes' => ['nullable', 'string', 'max:500'],
@@ -38,9 +39,11 @@ class StoreEnergyInvoiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'image.required' => 'An energy invoice image is required.',
+            'image.required_without' => 'An energy invoice image is required.',
             'image.mimes' => 'The invoice must be a JPG, JPEG, PNG, or PDF file.',
             'image.max' => 'The invoice file must not exceed 10MB.',
+            'image_base64.required_without' => 'An energy invoice image is required.',
+            'image_base64.max' => 'The encoded invoice file must not exceed 10MB.',
         ];
     }
 }

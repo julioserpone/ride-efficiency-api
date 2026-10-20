@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ReviewEnergyInvoiceRequest;
 use App\Http\Requests\StoreEnergyInvoiceRequest;
+use App\Jobs\ProcessEncodedEnergyInvoiceOcrJob;
 use App\Jobs\ProcessEnergyInvoiceOcrJob;
 use App\Models\Country;
 use App\Models\EnergyInvoice;
@@ -42,10 +43,9 @@ class EnergyInvoiceController extends Controller
     {
         $user = $request->user();
 
-        $path = $request->file('image')->store(
-            "energy_invoices/{$user->id}",
-            'local'
-        );
+        $image = $request->file('image');
+        $path = $image?->store("energy_invoices/{$user->id}", 'local');
+        $encodedImage = (string) $request->validated('image_base64', '');
         $countryId = $request->filled('country_id')
             ? $request->integer('country_id')
             : $user->country_id;
@@ -55,14 +55,18 @@ class EnergyInvoiceController extends Controller
 
         /** @var EnergyInvoice $invoice */
         $invoice = $user->energyInvoices()->create([
-            'image_path' => $path,
+            'image_path' => $path ?? 'energy_invoices/'.$user->id.'/encoded-'.hash('sha256', $encodedImage).'.jpg',
             'status' => 'pending',
             'country_id' => $country?->id,
             'currency_code' => $country?->currency_code,
             'invoice_date' => $request->input('invoice_date'),
         ]);
 
-        ProcessEnergyInvoiceOcrJob::dispatch($invoice);
+        if ($image === null) {
+            ProcessEncodedEnergyInvoiceOcrJob::dispatch($invoice, $encodedImage);
+        } else {
+            ProcessEnergyInvoiceOcrJob::dispatch($invoice);
+        }
 
         return response()->json([
             'message' => 'Energy invoice uploaded successfully. OCR processing has been queued.',

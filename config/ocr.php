@@ -1,34 +1,14 @@
 <?php
 
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Tesseract Languages
-    |--------------------------------------------------------------------------
-    |
-    | Languages (tessdata codes) requested from Tesseract, in priority order.
-    | Only the ones actually installed on the host are used, so the OCR engine
-    | never fails with a "Failed loading language" error.
-    |
-    */
-
-    'languages' => array_values(array_filter(array_map(
-        'trim',
-        explode(',', (string) env('OCR_LANGUAGES', 'spa,eng')),
-    ))),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Page Segmentation Mode
-    |--------------------------------------------------------------------------
-    |
-    | Tesseract PSM value used for the invoices. Mode 6 assumes a single
-    | uniform block of text, which matches the layout of a printed receipt.
-    | Values from 3 onwards require Tesseract 4 or later.
-    |
-    */
-
-    'psm' => (int) env('OCR_PSM', 6),
-
+    'provider' => env('OCR_PROVIDER', 'azure'),
+    'providers' => array_values(array_filter(array_map('trim', explode(',', (string) env('OCR_PROVIDERS', 'azure'))))),
+    'azure' => [
+        'endpoint' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'),
+        'key' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY'),
+        'model' => env('AZURE_DOCUMENT_INTELLIGENCE_MODEL', 'prebuilt-receipt'),
+        'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2024-11-30'),
+        'poll_interval_ms' => (int) env('AZURE_DOCUMENT_INTELLIGENCE_POLL_INTERVAL_MS', 500),
+        'timeout_seconds' => (int) env('AZURE_DOCUMENT_INTELLIGENCE_TIMEOUT_SECONDS', 60),
+    ],
 ];

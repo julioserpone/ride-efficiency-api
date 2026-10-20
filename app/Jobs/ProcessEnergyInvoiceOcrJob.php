@@ -50,11 +50,22 @@ class ProcessEnergyInvoiceOcrJob implements ShouldQueue
             $country = $this->energyInvoice->country ?? $this->energyInvoice->user->country;
 
             $result = $ocrService->processImage($absolutePath, $country?->code);
+            $providerResponse = $result['_provider_response'] ?? null;
+            $provider = $result['_provider'] ?? (string) config('ocr.provider', 'azure');
+            unset($result['_provider_response'], $result['_provider']);
+            $this->energyInvoice->update([
+                'ocr_provider' => $provider,
+                'ocr_request_data' => [
+                    'model' => config('ocr.azure.model', 'prebuilt-receipt'),
+                    'content_type' => mime_content_type($absolutePath) ?: 'application/octet-stream',
+                ],
+                'ocr_response_data' => $providerResponse,
+            ]);
             $items = [];
-            $itemDescriptions = array_map(
+            $itemDescriptions = array_values(array_map(
                 static fn (array $item): string => $item['product_description'] ?? '',
                 $result['items'],
-            );
+            ));
             $resolvedProducts = $productResolver->resolveMany($country, $itemDescriptions);
 
             foreach ($result['items'] as $lineNumber => $item) {
@@ -100,7 +111,7 @@ class ProcessEnergyInvoiceOcrJob implements ShouldQueue
                 ? $items[0]['quantity_unit']
                 : $result['energy_unit'];
             $unitPrice = $hasCompatibleItems
-                ? $items[0]['unit_price']
+                ? ($items[0]['unit_price'] ?? $result['unit_price'])
                 : $result['unit_price'];
             $isElectric = $energyUnit === EnergyUnit::KilowattHours;
             $isEnergyCompatible = $product !== null
@@ -127,7 +138,7 @@ class ProcessEnergyInvoiceOcrJob implements ShouldQueue
             ): void {
                 $vendor = $vendorResolver->resolve($country, [
                     'tax_id' => $result['vendor_tax_id'],
-                    'legal_name' => $result['vendor_name'],
+                    'legal_name' => $result['vendor_name'] ?? $result['station_name'],
                     'commercial_name' => $result['vendor_commercial_name'],
                     'address' => $result['vendor_address'],
                 ]);

@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessEncodedEnergyInvoiceOcrJob;
 use App\Jobs\ProcessEnergyInvoiceOcrJob;
 use App\Models\Country;
 use App\Models\EnergyInvoice;
@@ -47,13 +48,27 @@ test('guest cannot upload an energy invoice', function () {
         ->assertStatus(401);
 });
 
-test('energy invoice upload requires an image file', function () {
+test('energy invoice upload requires either an image file or base64 payload', function () {
     $user = User::factory()->create();
 
     Sanctum::actingAs($user);
     $this->postJson('/api/v1/energy-invoices', [])
         ->assertStatus(422)
-        ->assertJsonValidationErrors(['image']);
+        ->assertJsonValidationErrors(['image', 'image_base64']);
+});
+
+test('authenticated user can upload a base64 image for queued OCR', function () {
+    Storage::fake('local');
+    Queue::fake();
+    $user = User::factory()->create();
+    Sanctum::actingAs($user);
+
+    $this->postJson('/api/v1/energy-invoices', [
+        'image_base64' => 'data:image/jpeg;base64,'.base64_encode("\xFF\xD8\xFF\xE0synthetic-image"),
+    ])->assertCreated()
+        ->assertJsonPath('invoice.status', 'pending');
+
+    Queue::assertPushed(ProcessEncodedEnergyInvoiceOcrJob::class);
 });
 
 test('the previous fuel invoice endpoint is no longer registered', function () {

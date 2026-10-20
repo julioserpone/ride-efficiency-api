@@ -40,18 +40,23 @@ PostgreSQL development stack. Keep local environment files and credentials out o
 commits; use synthetic data for development and tests. See [`SECURITY.md`](SECURITY.md)
 before reporting a potential vulnerability.
 
-The Sail image is built from the repository's [Dockerfile](docker/8.5/Dockerfile),
-which includes Tesseract with English (`eng`) and Spanish (`spa`) language data.
-After changing the Dockerfile or recreating the application image, rebuild and verify it:
+Receipt images are processed asynchronously through Azure AI Document Intelligence's
+`prebuilt-receipt` model. Configure `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` and
+`AZURE_DOCUMENT_INTELLIGENCE_KEY` in `.env` (copy the names from `.env.example`); never
+commit credentials. `OCR_PROVIDER` selects the active implementation and defaults to
+`azure`; `OCR_PROVIDERS` lists the implementations enabled in the application. The
+Azure model, API version, polling interval and request timeout can be configured with
+the corresponding `AZURE_DOCUMENT_INTELLIGENCE_*` variables in `.env.example`.
+Uploads are queued, so run a queue worker in development or deployment. The worker
+submits the receipt, polls Azure for the completed analysis, maps extracted fields to
+the invoice, and sends incomplete results to manual review. Provider request metadata
+and the full response are encrypted on the invoice record. Tests use synthetic Azure
+responses and do not call Azure.
 
-```bash
-docker compose build laravel.test
-docker compose up -d --force-recreate laravel.test
-docker compose exec laravel.test tesseract --list-langs
-```
-
-The language list should include both `eng` and `spa`. The `types:check` Composer
-script sets PHPStan's analysis limit to 512 MB, so `composer test` uses it automatically.
+To add another provider, implement `ReceiptAnalysisProvider` and register it in
+`ReceiptAnalysisProviderManager`; the controller and queue orchestration can remain
+unchanged. The `types:check` Composer script sets PHPStan's analysis limit to 512 MB,
+so `composer test` uses it automatically.
 
 ## API surface
 
@@ -122,9 +127,14 @@ commission rate when one applies.
 
 Energy units remain explicit end-to-end: combustion receipts can use gallons or litres,
 and electric receipts use kilowatt-hours. Invoice uploads accept an optional `country_id`
-when the purchase took place outside the driver's configured country. The OCR recognizes
-English and Spanish labels and common decimal/thousands separators; uncertain or
-incomplete scans are retained for manual review rather than marked complete. Invoice
+when the purchase took place outside the driver's configured country. Multipart uploads
+continue to accept the `image` file field; web and mobile clients may also submit
+`image_base64` containing raw base64 or a data URI. The asynchronous receipt analysis
+uses the configured provider's receipt model. `OCR_PROVIDER` chooses the active driver
+(currently `azure`); `OCR_PROVIDERS` lists drivers enabled for the application. Provider
+request metadata and the complete raw provider response are encrypted at rest on the
+invoice record. Uncertain or incomplete scans are retained for manual review rather
+than marked complete. Invoice
 records retain supplier and service-station details, customer identity (separate from the
 authenticated user), vehicle plate, payment method, invoice identifiers, and invoice-level
 tax totals. Invoice JSON exposes the normalized supplier as `vendor` (including

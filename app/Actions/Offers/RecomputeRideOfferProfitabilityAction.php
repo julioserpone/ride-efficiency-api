@@ -14,7 +14,7 @@ use GigEconomics\Domain\Trip\Fare;
 use GigEconomics\Domain\Trip\TripCostProfile;
 use GigEconomics\Domain\Trip\TripProfitabilityCalculator;
 use GigEconomics\Support\Configuration;
-use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class RecomputeRideOfferProfitabilityAction
 {
@@ -60,7 +60,7 @@ class RecomputeRideOfferProfitabilityAction
             return null;
         }
 
-        $platform = Platform::tryFrom(\Illuminate\Support\Str::lower($offer->platform)) ?? Platform::Custom;
+        $platform = Platform::tryFrom(Str::lower($offer->platform)) ?? Platform::Custom;
         $commissionRate = $vehicle->commission_rate ?? $platform->defaultCommissionPercentage();
 
         $grossFare = (string) $offer->offered_fare;
@@ -76,7 +76,7 @@ class RecomputeRideOfferProfitabilityAction
 
         $profile = TripCostProfile::create(
             energyPricePerUnit: Money::of((string) $energyPrice, $currency),
-            energyEconomy: \GigEconomics\Domain\Shared\EnergyEconomy::of(
+            energyEconomy: EnergyEconomy::of(
                 (string) $vehicle->energy_economy,
                 $vehicle->energy_unit,
             ),

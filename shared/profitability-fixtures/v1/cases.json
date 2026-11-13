@@ -1,0 +1,685 @@
+{
+    "version": "1",
+    "cases": [
+        {
+            "id": "case-001",
+            "description": "Uber combustion accept",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "20.00",
+                "currency": "USD",
+                "distance_km": "10",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 20,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.10"
+            },
+            "expected": {
+                "gross_fare": "20.00",
+                "platform_commission": "5.000000000000",
+                "energy_cost": "0.907427",
+                "depreciation_cost": "1.500000",
+                "other_costs": "0",
+                "net_profit": "12.592573000000",
+                "total_distance_km": "10",
+                "profit_per_km": "1.259257",
+                "break_even_fare": "3.209902666667",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-002",
+            "description": "DiDi combustion accept",
+            "input": {
+                "platform": "didi",
+                "gross_fare": "18.00",
+                "currency": "USD",
+                "distance_km": "8",
+                "deadhead_distance_km": "2",
+                "duration_minutes": 15,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.50",
+                    "economy": "45.00",
+                    "unit": "gallons"
+                },
+                "commission_rate": "20",
+                "depreciation_per_km": "0.12",
+                "other_costs_per_trip": "1.00",
+                "target_profit_per_km": "0.10"
+            },
+            "expected": {
+                "gross_fare": "18.00",
+                "platform_commission": "3.600000000000",
+                "energy_cost": "1.000000",
+                "depreciation_cost": "1.200000",
+                "other_costs": "1.00",
+                "net_profit": "11.200000000000",
+                "total_distance_km": "10",
+                "profit_per_km": "1.120000",
+                "break_even_fare": "4.000000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-003",
+            "description": "inDrive combustion marginal",
+            "input": {
+                "platform": "indrive",
+                "gross_fare": "12.00",
+                "currency": "USD",
+                "distance_km": "10",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 18,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "10",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "12.00",
+                "platform_commission": "1.200000000000",
+                "energy_cost": "0.907427",
+                "depreciation_cost": "1.500000",
+                "other_costs": "0",
+                "net_profit": "8.392573000000",
+                "total_distance_km": "10",
+                "profit_per_km": "0.839257",
+                "break_even_fare": "2.674918888889",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-004",
+            "description": "Lyft combustion reject",
+            "input": {
+                "platform": "lyft",
+                "gross_fare": "8.00",
+                "currency": "USD",
+                "distance_km": "10",
+                "deadhead_distance_km": "5",
+                "duration_minutes": 20,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "2.00",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "8.00",
+                "platform_commission": "2.000000000000",
+                "energy_cost": "1.361140",
+                "depreciation_cost": "2.250000",
+                "other_costs": "2.00",
+                "net_profit": "0.388860000000",
+                "total_distance_km": "15",
+                "profit_per_km": "0.025924",
+                "break_even_fare": "7.481520000000",
+                "verdict": "reject"
+            }
+        },
+        {
+            "id": "case-005",
+            "description": "Custom zero commission",
+            "input": {
+                "platform": "custom",
+                "gross_fare": "15.00",
+                "currency": "USD",
+                "distance_km": "6",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 12,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "3.00",
+                    "economy": "40.00",
+                    "unit": "gallons"
+                },
+                "commission_rate": "0",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "15.00",
+                "platform_commission": "0.000000000000",
+                "energy_cost": "0.450000",
+                "depreciation_cost": "0.600000",
+                "other_costs": "0",
+                "net_profit": "13.950000000000",
+                "total_distance_km": "6",
+                "profit_per_km": "2.325000",
+                "break_even_fare": "1.050000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-006",
+            "description": "Uber electric accept",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "20.00",
+                "currency": "USD",
+                "distance_km": "12",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 22,
+                "energy": {
+                    "mode": "electric",
+                    "price_per_unit": "0.30",
+                    "economy": "6.00",
+                    "unit": "kwh"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.10"
+            },
+            "expected": {
+                "gross_fare": "20.00",
+                "platform_commission": "5.000000000000",
+                "energy_cost": "0.600000",
+                "depreciation_cost": "1.200000",
+                "other_costs": "0",
+                "net_profit": "13.200000000000",
+                "total_distance_km": "12",
+                "profit_per_km": "1.100000",
+                "break_even_fare": "2.400000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-007",
+            "description": "DiDi electric marginal",
+            "input": {
+                "platform": "didi",
+                "gross_fare": "10.00",
+                "currency": "USD",
+                "distance_km": "6",
+                "deadhead_distance_km": "1",
+                "duration_minutes": 12,
+                "energy": {
+                    "mode": "electric",
+                    "price_per_unit": "0.25",
+                    "economy": "5.50",
+                    "unit": "kwh"
+                },
+                "commission_rate": "20",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "0.50",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "10.00",
+                "platform_commission": "2.000000000000",
+                "energy_cost": "0.318182",
+                "depreciation_cost": "0.700000",
+                "other_costs": "0.50",
+                "net_profit": "6.481818000000",
+                "total_distance_km": "7",
+                "profit_per_km": "0.925974",
+                "break_even_fare": "1.897727500000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-008",
+            "description": "inDrive electric reject",
+            "input": {
+                "platform": "indrive",
+                "gross_fare": "6.00",
+                "currency": "USD",
+                "distance_km": "8",
+                "deadhead_distance_km": "3",
+                "duration_minutes": 15,
+                "energy": {
+                    "mode": "electric",
+                    "price_per_unit": "0.30",
+                    "economy": "6.00",
+                    "unit": "kwh"
+                },
+                "commission_rate": "10",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "1.00",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "6.00",
+                "platform_commission": "0.600000000000",
+                "energy_cost": "0.550000",
+                "depreciation_cost": "1.100000",
+                "other_costs": "1.00",
+                "net_profit": "2.750000000000",
+                "total_distance_km": "11",
+                "profit_per_km": "0.250000",
+                "break_even_fare": "2.944444444444",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-009",
+            "description": "High deadhead reject",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "15.00",
+                "currency": "USD",
+                "distance_km": "5",
+                "deadhead_distance_km": "10",
+                "duration_minutes": 25,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "15.00",
+                "platform_commission": "3.750000000000",
+                "energy_cost": "1.361140",
+                "depreciation_cost": "2.250000",
+                "other_costs": "0",
+                "net_profit": "7.638860000000",
+                "total_distance_km": "15",
+                "profit_per_km": "0.509257",
+                "break_even_fare": "4.814853333333",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-010",
+            "description": "Long trip accept",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "60.00",
+                "currency": "USD",
+                "distance_km": "40",
+                "deadhead_distance_km": "5",
+                "duration_minutes": 60,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "3.00",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "60.00",
+                "platform_commission": "15.000000000000",
+                "energy_cost": "4.083421",
+                "depreciation_cost": "6.750000",
+                "other_costs": "3.00",
+                "net_profit": "31.166579000000",
+                "total_distance_km": "45",
+                "profit_per_km": "0.692591",
+                "break_even_fare": "18.444561333333",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-011",
+            "description": "Short trip marginal band",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "5.00",
+                "currency": "USD",
+                "distance_km": "2",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 8,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "5.00",
+                "platform_commission": "1.250000000000",
+                "energy_cost": "0.181485",
+                "depreciation_cost": "0.300000",
+                "other_costs": "0",
+                "net_profit": "3.268515000000",
+                "total_distance_km": "2",
+                "profit_per_km": "1.634258",
+                "break_even_fare": "0.641980000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-012",
+            "description": "Zero target profit -> positive profit accept",
+            "input": {
+                "platform": "custom",
+                "gross_fare": "10.00",
+                "currency": "USD",
+                "distance_km": "5",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 10,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "3.00",
+                    "economy": "40.00",
+                    "unit": "gallons"
+                },
+                "commission_rate": "0",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0"
+            },
+            "expected": {
+                "gross_fare": "10.00",
+                "platform_commission": "0.000000000000",
+                "energy_cost": "0.375000",
+                "depreciation_cost": "0.500000",
+                "other_costs": "0",
+                "net_profit": "9.125000000000",
+                "total_distance_km": "5",
+                "profit_per_km": "1.825000",
+                "break_even_fare": "0.875000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-013",
+            "description": "Zero distance edge",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "5.00",
+                "currency": "USD",
+                "distance_km": "0",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 5,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "5.00",
+                "platform_commission": "1.250000000000",
+                "energy_cost": "0.000000",
+                "depreciation_cost": "0.000000",
+                "other_costs": "0",
+                "net_profit": "3.750000000000",
+                "total_distance_km": "0",
+                "profit_per_km": "3.750000",
+                "break_even_fare": "0.000000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-014",
+            "description": "Commission 100 percent",
+            "input": {
+                "platform": "custom",
+                "gross_fare": "10.00",
+                "currency": "USD",
+                "distance_km": "5",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 10,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "3.00",
+                    "economy": "40.00",
+                    "unit": "gallons"
+                },
+                "commission_rate": "100",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "10.00",
+                "platform_commission": "10.000000000000",
+                "energy_cost": "0.375000",
+                "depreciation_cost": "0.500000",
+                "other_costs": "0",
+                "net_profit": "-0.875000000000",
+                "total_distance_km": "5",
+                "profit_per_km": "-0.175000",
+                "break_even_fare": "0",
+                "verdict": "reject"
+            }
+        },
+        {
+            "id": "case-015",
+            "description": "Heavy other costs reject",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "12.00",
+                "currency": "USD",
+                "distance_km": "6",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 12,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "8.00",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "12.00",
+                "platform_commission": "3.000000000000",
+                "energy_cost": "0.544456",
+                "depreciation_cost": "0.900000",
+                "other_costs": "8.00",
+                "net_profit": "-0.444456000000",
+                "total_distance_km": "6",
+                "profit_per_km": "-0.074076",
+                "break_even_fare": "12.592608000000",
+                "verdict": "reject"
+            }
+        },
+        {
+            "id": "case-016",
+            "description": "Electric long trip accept",
+            "input": {
+                "platform": "lyft",
+                "gross_fare": "45.00",
+                "currency": "USD",
+                "distance_km": "30",
+                "deadhead_distance_km": "4",
+                "duration_minutes": 50,
+                "energy": {
+                    "mode": "electric",
+                    "price_per_unit": "0.28",
+                    "economy": "5.80",
+                    "unit": "kwh"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.10",
+                "other_costs_per_trip": "2.00",
+                "target_profit_per_km": "0.12"
+            },
+            "expected": {
+                "gross_fare": "45.00",
+                "platform_commission": "11.250000000000",
+                "energy_cost": "1.641379",
+                "depreciation_cost": "3.400000",
+                "other_costs": "2.00",
+                "net_profit": "26.708621000000",
+                "total_distance_km": "34",
+                "profit_per_km": "0.785548",
+                "break_even_fare": "9.388505333333",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-017",
+            "description": "Precise decimals",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "13.37",
+                "currency": "USD",
+                "distance_km": "7.5",
+                "deadhead_distance_km": "1.2",
+                "duration_minutes": 14,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "3.9999",
+                    "economy": "38.75",
+                    "unit": "gallons"
+                },
+                "commission_rate": "22.5",
+                "depreciation_per_km": "0.1375",
+                "other_costs_per_trip": "0.50",
+                "target_profit_per_km": "0.14"
+            },
+            "expected": {
+                "gross_fare": "13.37",
+                "platform_commission": "3.008250000000",
+                "energy_cost": "0.898042",
+                "depreciation_cost": "1.196250",
+                "other_costs": "0.50",
+                "net_profit": "7.767458000000",
+                "total_distance_km": "8.7",
+                "profit_per_km": "0.892811",
+                "break_even_fare": "3.347473548387",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-018",
+            "description": "Electric fixed cost",
+            "input": {
+                "platform": "didi",
+                "gross_fare": "9.50",
+                "currency": "USD",
+                "distance_km": "4",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 9,
+                "energy": {
+                    "mode": "electric",
+                    "price_per_unit": "0.32",
+                    "economy": "6.20",
+                    "unit": "kwh"
+                },
+                "commission_rate": "20",
+                "depreciation_per_km": "0.08",
+                "other_costs_per_trip": "0.75",
+                "target_profit_per_km": "0.10"
+            },
+            "expected": {
+                "gross_fare": "9.50",
+                "platform_commission": "1.900000000000",
+                "energy_cost": "0.206452",
+                "depreciation_cost": "0.320000",
+                "other_costs": "0.75",
+                "net_profit": "6.323548000000",
+                "total_distance_km": "4",
+                "profit_per_km": "1.580887",
+                "break_even_fare": "1.595565000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-019",
+            "description": "Inefficient combustion reject",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "11.00",
+                "currency": "USD",
+                "distance_km": "9",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 18,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "5.50",
+                    "economy": "25.00",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "11.00",
+                "platform_commission": "2.750000000000",
+                "energy_cost": "1.980000",
+                "depreciation_cost": "1.350000",
+                "other_costs": "0",
+                "net_profit": "4.920000000000",
+                "total_distance_km": "9",
+                "profit_per_km": "0.546667",
+                "break_even_fare": "4.440000000000",
+                "verdict": "accept"
+            }
+        },
+        {
+            "id": "case-020",
+            "description": "Marginal near target",
+            "input": {
+                "platform": "uber",
+                "gross_fare": "12.00",
+                "currency": "USD",
+                "distance_km": "10",
+                "deadhead_distance_km": "0",
+                "duration_minutes": 20,
+                "energy": {
+                    "mode": "combustion",
+                    "price_per_unit": "4.8384",
+                    "economy": "53.32",
+                    "unit": "gallons"
+                },
+                "commission_rate": "25",
+                "depreciation_per_km": "0.15",
+                "other_costs_per_trip": "0",
+                "target_profit_per_km": "0.15"
+            },
+            "expected": {
+                "gross_fare": "12.00",
+                "platform_commission": "3.000000000000",
+                "energy_cost": "0.907427",
+                "depreciation_cost": "1.500000",
+                "other_costs": "0",
+                "net_profit": "6.592573000000",
+                "total_distance_km": "10",
+                "profit_per_km": "0.659257",
+                "break_even_fare": "3.209902666667",
+                "verdict": "accept"
+            }
+        }
+    ]
+}

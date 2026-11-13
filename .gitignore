@@ -20,3 +20,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Local OCR test fixtures (not for commit)
+tests/factura*

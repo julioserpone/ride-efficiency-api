@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property array<string, mixed>|null $config_snapshot
+ * @property array<string, mixed>|null $raw_payload
+ */
 #[Fillable([
     'client_uuid', 'user_id', 'vehicle_id', 'daily_shift_id', 'platform', 'external_offer_id',
     'currency_code', 'offered_fare', 'surge_amount', 'tip_amount', 'toll_amount',

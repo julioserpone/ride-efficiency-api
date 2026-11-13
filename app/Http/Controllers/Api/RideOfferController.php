@@ -2,17 +2,164 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Offers\RecomputeRideOfferProfitabilityAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SyncRideOffersRequest;
 use App\Models\RideOffer;
 use App\Models\RideOfferEvent;
+use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class RideOfferController extends Controller
 {
-    public function sync(SyncRideOffersRequest $request): JsonResponse
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $query = RideOffer::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('received_at');
+
+        if ($request->filled('platform')) {
+            $query->where('platform', $request->string('platform')->toString());
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('from')) {
+            $query->where('received_at', '>=', $request->date('from'));
+        }
+
+        if ($request->filled('to')) {
+            $query->where('received_at', '<=', $request->date('to'));
+        }
+
+        $offers = $query->paginate($request->integer('per_page', 15));
+
+        return response()->json(['offers' => $offers]);
+    }
+
+    public function show(Request $request, RideOffer $rideOffer): JsonResponse
+    {
+        if ($rideOffer->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        return response()->json(['offer' => $rideOffer->load('vehicle', 'events')]);
+    }
+
+    public function evaluate(Request $request, RecomputeRideOfferProfitabilityAction $recompute): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'platform' => ['required', 'string', 'max:32'],
+            'currency_code' => ['required', 'string', 'size:3'],
+            'offered_fare' => ['required', 'numeric'],
+            'surge_amount' => ['nullable', 'numeric'],
+            'tip_amount' => ['nullable', 'numeric'],
+            'toll_amount' => ['nullable', 'numeric'],
+            'estimated_distance_km' => ['required', 'numeric', 'gt:0'],
+            'pickup_distance_km' => ['nullable', 'numeric'],
+            'estimated_duration_minutes' => ['nullable', 'integer', 'min:0'],
+            'vehicle_id' => ['nullable', 'integer'],
+            'client_verdict' => ['nullable', 'string', 'max:16'],
+            'client_net_profit_estimate' => ['nullable', 'numeric'],
+            'client_break_even_fare' => ['nullable', 'numeric'],
+            'calculation_version' => ['nullable', 'string', 'max:16'],
+            'config_snapshot' => ['nullable', 'array'],
+        ]);
+
+        $offer = new RideOffer;
+        $offer->forceFill([
+            'user_id' => $user->id,
+            'platform' => $validated['platform'],
+            'currency_code' => $validated['currency_code'],
+            'offered_fare' => (string) $validated['offered_fare'],
+            'surge_amount' => isset($validated['surge_amount']) ? (string) $validated['surge_amount'] : '0',
+            'tip_amount' => isset($validated['tip_amount']) ? (string) $validated['tip_amount'] : '0',
+            'toll_amount' => isset($validated['toll_amount']) ? (string) $validated['toll_amount'] : '0',
+            'estimated_distance_km' => (string) $validated['estimated_distance_km'],
+            'pickup_distance_km' => isset($validated['pickup_distance_km']) ? (string) $validated['pickup_distance_km'] : null,
+            'estimated_duration_minutes' => $validated['estimated_duration_minutes'] ?? null,
+            'client_verdict' => $validated['client_verdict'] ?? null,
+            'client_net_profit_estimate' => isset($validated['client_net_profit_estimate']) ? (string) $validated['client_net_profit_estimate'] : null,
+            'client_break_even_fare' => isset($validated['client_break_even_fare']) ? (string) $validated['client_break_even_fare'] : null,
+            'calculation_version' => $validated['calculation_version'] ?? null,
+            'config_snapshot' => $validated['config_snapshot'] ?? null,
+            'received_at' => now(),
+            'status' => 'received',
+        ]);
+        $offer->setRelation('user', $user);
+
+        $vehicle = null;
+        if (isset($validated['vehicle_id'])) {
+            if (! $user->vehicles()->where('id', (int) $validated['vehicle_id'])->exists()) {
+                return response()->json(['message' => 'Vehicle does not belong to the authenticated user.'], 422);
+            }
+            $vehicle = Vehicle::query()->with('country')->find((int) $validated['vehicle_id']);
+        }
+
+        $server = $recompute->execute($offer, $vehicle);
+
+        if ($server === null) {
+            return response()->json(['message' => 'Unable to compute server verdict (missing vehicle or energy price).'], 422);
+        }
+
+        return response()->json(['result' => $server]);
+    }
+
+    public function dailySummary(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $base = RideOffer::query()->where('user_id', $user->id);
+
+        if ($request->filled('from')) {
+            $base->where('received_at', '>=', $request->date('from'));
+        }
+
+        if ($request->filled('to')) {
+            $base->where('received_at', '<=', $request->date('to'));
+        }
+
+        $offered = (clone $base)->count();
+        $evaluated = (clone $base)->whereNotNull('client_verdict')->count();
+        $accepted = (clone $base)->where('status', 'accepted')->count();
+        $rejected = (clone $base)->where('status', 'rejected')->count();
+        $expired = (clone $base)->where('status', 'expired')->count();
+        $completed = (clone $base)->where('status', 'completed')->count();
+        $cancelled = (clone $base)->where('status', 'cancelled')->count();
+
+        $acceptanceRate = $offered > 0 ? round($accepted / $offered, 4) : 0;
+        $completionRate = $accepted > 0 ? round($completed / $accepted, 4) : 0;
+
+        $avgFare = (clone $base)->avg('offered_fare');
+        $avgProfit = (clone $base)->avg('client_net_profit_estimate');
+
+        return response()->json([
+            'summary' => [
+                'offered' => $offered,
+                'evaluated' => $evaluated,
+                'accepted' => $accepted,
+                'rejected' => $rejected,
+                'expired' => $expired,
+                'completed' => $completed,
+                'cancelled' => $cancelled,
+                'acceptance_rate' => $acceptanceRate,
+                'completion_rate' => $completionRate,
+                'avg_offered_fare' => $avgFare === null ? null : number_format((float) $avgFare, 2, '.', ''),
+                'avg_net_profit' => $avgProfit === null ? null : number_format((float) $avgProfit, 2, '.', ''),
+            ],
+        ]);
+    }
+
+    public function sync(SyncRideOffersRequest $request, RecomputeRideOfferProfitabilityAction $recompute): JsonResponse
     {
         $user = $request->user();
         $synced = [];
@@ -22,7 +169,7 @@ class RideOfferController extends Controller
             $clientUuid = $offerData['client_uuid'];
 
             try {
-                $offer = DB::transaction(function () use ($user, $offerData): RideOffer {
+                $offer = DB::transaction(function () use ($user, $offerData, $recompute): RideOffer {
                     $vehicleId = isset($offerData['vehicle_id']) ? (int) $offerData['vehicle_id'] : null;
 
                     if ($vehicleId !== null && ! $user->vehicles()->where('id', $vehicleId)->exists()) {
@@ -108,6 +255,17 @@ class RideOfferController extends Controller
                         }
                     }
 
+                    $vehicle = $vehicleId !== null
+                        ? Vehicle::query()->with('country')->find($vehicleId)
+                        : null;
+
+                    $server = $recompute->execute($offer, $vehicle);
+
+                    if ($server !== null) {
+                        $offer->update($server);
+                        $offer->refresh();
+                    }
+
                     return $offer;
                 });
 
@@ -115,6 +273,7 @@ class RideOfferController extends Controller
                     'client_uuid' => $clientUuid,
                     'id' => $offer->id,
                     'status' => $offer->status,
+                    'server_verdict' => $offer->server_verdict,
                 ];
             } catch (\Throwable $exception) {
                 $errors[] = [

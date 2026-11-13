@@ -59,6 +59,14 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // Offer sync (idempotent, batch, partial success)
     Route::post('/ride-offers/sync', [RideOfferController::class, 'sync'])
         ->name('api.v1.ride-offers.sync');
+    Route::post('/ride-offers/evaluate', [RideOfferController::class, 'evaluate'])
+        ->name('api.v1.ride-offers.evaluate');
+    Route::get('/ride-offers/summary/daily', [RideOfferController::class, 'dailySummary'])
+        ->name('api.v1.ride-offers.summary.daily');
+    Route::get('/ride-offers', [RideOfferController::class, 'index'])
+        ->name('api.v1.ride-offers.index');
+    Route::get('/ride-offers/{rideOffer}', [RideOfferController::class, 'show'])
+        ->name('api.v1.ride-offers.show');
 
     // Stats & Metrics
     Route::get('/stats/weekly', [StatsController::class, 'weekly'])->name('api.v1.stats.weekly');

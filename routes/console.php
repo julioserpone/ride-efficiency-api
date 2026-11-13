@@ -18,6 +18,7 @@ Artisan::command('ride-offers:expire', function () {
 
 Artisan::command('ride-offers:aggregate {--date=}', function () {
     $date = $this->option('date');
+    $date = is_string($date) ? $date : null;
 
     AggregateDailyOfferMetricsJob::dispatchSync($date);
 

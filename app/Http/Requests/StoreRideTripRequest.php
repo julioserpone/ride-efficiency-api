@@ -40,6 +40,11 @@ class StoreRideTripRequest extends FormRequest
                 'integer',
                 Rule::exists('daily_shifts', 'id')->where('user_id', $this->user()?->id),
             ],
+            'ride_offer_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('ride_offers', 'id')->where('user_id', $this->user()?->id),
+            ],
         ];
     }
 }

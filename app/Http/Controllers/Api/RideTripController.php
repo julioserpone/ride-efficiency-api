@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Trips\CalculateRideTripProfitabilityAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRideTripRequest;
+use App\Models\RideOffer;
 use App\Models\RideTrip;
 use App\Models\Vehicle;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +72,33 @@ class RideTripController extends Controller
         }
 
         $trip = $calculator->execute($vehicle, $attributes, (string) $energyPricePerUnit);
+
+        if ($request->filled('ride_offer_id')) {
+            $offer = RideOffer::query()
+                ->where('user_id', $request->user()->id)
+                ->find((int) $request->input('ride_offer_id'));
+
+            if ($offer !== null) {
+                $offer->update([
+                    'ride_trip_id' => $trip->id,
+                    'actual_distance_km' => $trip->distance_km,
+                    'actual_fare' => $trip->gross_fare,
+                    'actual_duration_minutes' => $trip->duration_minutes,
+                    'status' => 'completed',
+                    'completed_at' => now(),
+                ]);
+
+                $alreadyCompleted = $offer->events()->where('event_type', 'completed')->exists();
+
+                if (! $alreadyCompleted) {
+                    $offer->events()->create([
+                        'event_type' => 'completed',
+                        'occurred_at' => now(),
+                        'metadata' => ['ride_trip_id' => $trip->id],
+                    ]);
+                }
+            }
+        }
 
         return response()->json([
             'message' => 'Ride profitability calculated successfully.',

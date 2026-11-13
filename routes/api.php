@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthTokenController;
 use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\EnergyInvoiceController;
 use App\Http\Controllers\Api\EnergyProductController;
+use App\Http\Controllers\Api\ProfitabilityProfileController;
 use App\Http\Controllers\Api\RideTripController;
 use App\Http\Controllers\Api\ShiftController;
 use App\Http\Controllers\Api\StatsController;
@@ -49,6 +50,10 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::get('/ride-trips', [RideTripController::class, 'index'])->name('api.v1.ride-trips.index');
     Route::post('/vehicles/{vehicle}/trips', [RideTripController::class, 'store'])->name('api.v1.vehicles.trips.store');
     Route::get('/ride-trips/{rideTrip}', [RideTripController::class, 'show'])->name('api.v1.ride-trips.show');
+
+    // Profitability profile for local mobile calculation
+    Route::get('/profitability/profile', [ProfitabilityProfileController::class, 'show'])
+        ->name('api.v1.profitability.profile');
 
     // Stats & Metrics
     Route::get('/stats/weekly', [StatsController::class, 'weekly'])->name('api.v1.stats.weekly');

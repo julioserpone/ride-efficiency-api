@@ -86,7 +86,10 @@ class RecomputeRideOfferProfitabilityAction
         );
 
         $configuration = Configuration::fromArray(config('gig-economics', []));
-        $targetPerKm = $offer->config_snapshot['target_profit_per_km'] ?? $configuration->defaultTargetProfitPerKilometre;
+        $configSnapshot = $offer->config_snapshot;
+        $targetPerKm = is_array($configSnapshot) && isset($configSnapshot['target_profit_per_km'])
+            ? $configSnapshot['target_profit_per_km']
+            : $configuration->defaultTargetProfitPerKilometre;
 
         $profitability = TripProfitabilityCalculator::withDefaultTarget(
             Money::of((string) $targetPerKm, $currency),

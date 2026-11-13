@@ -25,6 +25,7 @@ use Laravel\Sanctum\HasApiTokens;
  * @property string|null $two_factor_recovery_codes
  * @property Carbon|null $two_factor_confirmed_at
  * @property string|null $remember_token
+ * @property Carbon|null $password_changed_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -96,6 +97,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'password_changed_at' => 'datetime',
         ];
     }
 }

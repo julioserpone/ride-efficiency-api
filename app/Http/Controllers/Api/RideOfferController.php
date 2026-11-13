@@ -53,6 +53,47 @@ class RideOfferController extends Controller
         return response()->json(['offer' => $rideOffer->load('vehicle', 'events')]);
     }
 
+    public function update(Request $request, RideOffer $rideOffer): JsonResponse
+    {
+        if ($rideOffer->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $validated = $request->validate([
+            'status' => ['required', 'string', 'in:'.implode(',', RideOffer::STATUSES)],
+            'cancellation_reason' => ['nullable', 'string', 'max:128'],
+        ]);
+
+        if (! $rideOffer->canTransitionTo($validated['status'])) {
+            return response()->json([
+                'message' => "Invalid status transition: {$rideOffer->status} -> {$validated['status']}.",
+            ], 422);
+        }
+
+        $attributes = ['status' => $validated['status']];
+
+        if (isset($validated['cancellation_reason'])) {
+            $attributes['cancellation_reason'] = $validated['cancellation_reason'];
+        }
+
+        if ($validated['status'] === 'accepted') {
+            $attributes['decided_at'] = now();
+        }
+
+        if (in_array($validated['status'], ['completed', 'cancelled'], true)) {
+            $attributes['completed_at'] = $validated['status'] === 'completed' ? now() : $rideOffer->completed_at;
+            $attributes['cancelled_at'] = $validated['status'] === 'cancelled' ? now() : $rideOffer->cancelled_at;
+        }
+
+        if ($validated['status'] === 'rejected' || $validated['status'] === 'expired') {
+            $attributes['decided_at'] = now();
+        }
+
+        $rideOffer->update($attributes);
+
+        return response()->json(['offer' => $rideOffer->fresh()]);
+    }
+
     public function evaluate(Request $request, RecomputeRideOfferProfitabilityAction $recompute): JsonResponse
     {
         $user = $request->user();
@@ -215,6 +256,12 @@ class RideOfferController extends Controller
                         ->first();
 
                     if ($existing !== null) {
+                        $newStatus = $attributes['status'];
+
+                        if (! $existing->canTransitionTo($newStatus)) {
+                            throw new \RuntimeException("Invalid status transition: {$existing->status} -> {$newStatus}.");
+                        }
+
                         $existing->update($attributes);
                         $offer = $existing;
                     } else {

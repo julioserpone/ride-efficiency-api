@@ -67,6 +67,8 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         ->name('api.v1.ride-offers.index');
     Route::get('/ride-offers/{rideOffer}', [RideOfferController::class, 'show'])
         ->name('api.v1.ride-offers.show');
+    Route::patch('/ride-offers/{rideOffer}', [RideOfferController::class, 'update'])
+        ->name('api.v1.ride-offers.update');
 
     // Stats & Metrics
     Route::get('/stats/weekly', [StatsController::class, 'weekly'])->name('api.v1.stats.weekly');

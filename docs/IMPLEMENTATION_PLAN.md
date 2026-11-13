@@ -120,8 +120,8 @@
 - [x] **API-OFFER-16 (S)** Expiration job for `expires_at`; emits `expired` event.
 - [x] **API-OFFER-17 (S)** Recompute server-side on sync; store `client_*` and `server_*` for drift analysis.
 - [x] **API-OFFER-18 (M)** `GET /api/v1/ride-offers/summary/daily`: offered/evaluated/accepted/rejected/expired/completed/cancelled; acceptance/completion rates; avg fare/profit.
-- [ ] **API-OFFER-19 (M, optional)** Daily aggregate table/job (`daily_offer_metrics`) if volume warrants.
-- [ ] **API-OFFER-20 (S)** Link completed `ride_trip` to originating offer; update actual fields.
+- [x] **API-OFFER-19 (M, optional)** Daily aggregate table/job (`daily_offer_metrics`) if volume warrants.
+- [x] **API-OFFER-20 (S)** Link completed `ride_trip` to originating offer; update actual fields.
 - [ ] **API-OFFER-21 (S)** Form Requests, validation, ownership authorization, tests.
 
 **Acceptance:** mobile can sync 100 offers with retries and 0 duplicates; API recomputes and stores both verdicts; daily funnel is queryable; invalid transitions rejected.

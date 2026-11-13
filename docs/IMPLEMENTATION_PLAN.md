@@ -108,18 +108,18 @@
   `calculation_version`, `config_snapshot`, `ride_trip_id`.
 - [x] **API-OFFER-07 (S)** Migration `ride_offer_events`: offer id, event type, occurred_at, metadata.
 - [x] **API-OFFER-08 (S)** Indexes: `(user_id, received_at)`, `(user_id, status)`, `(platform)`, unique `(user_id, client_uuid)`.
-- [ ] **API-OFFER-09 (S)** Models, factories, casts (decimal), relationships; no destructive backfill.
-- [ ] **API-OFFER-10 (S)** Nullable FK `ride_trips.ride_offer_id` or `ride_offers.ride_trip_id`; choose one direction and document.
+- [x] **API-OFFER-09 (S)** Models, factories, casts (decimal), relationships; no destructive backfill.
+- [x] **API-OFFER-10 (S)** Nullable FK `ride_trips.ride_offer_id` or `ride_offers.ride_trip_id`; choose one direction and document.
 
 #### Endpoints & rules
 - [x] **API-OFFER-11 (M)** `POST /api/v1/ride-offers/sync`: batch upsert offers + events, idempotent, partial success, per-item errors.
-- [ ] **API-OFFER-12 (S)** `GET /api/v1/ride-offers`: filters (platform, status, date range), pagination, sorting.
-- [ ] **API-OFFER-13 (S)** `GET /api/v1/ride-offers/{id}`.
-- [ ] **API-OFFER-14 (S)** `POST /api/v1/ride-offers/evaluate`: server-side fallback for web/other clients; target p95 < 300 ms; not used by mobile critical path.
+- [x] **API-OFFER-12 (S)** `GET /api/v1/ride-offers`: filters (platform, status, date range), pagination, sorting.
+- [x] **API-OFFER-13 (S)** `GET /api/v1/ride-offers/{id}`.
+- [x] **API-OFFER-14 (S)** `POST /api/v1/ride-offers/evaluate`: server-side fallback for web/other clients; target p95 < 300 ms; not used by mobile critical path.
 - [ ] **API-OFFER-15 (S)** State machine: `received → evaluated → accepted/rejected/expired`; `accepted → completed/cancelled`; reject invalid transitions with 422.
 - [ ] **API-OFFER-16 (S)** Expiration job for `expires_at`; emits `expired` event.
-- [ ] **API-OFFER-17 (S)** Recompute server-side on sync; store `client_*` and `server_*` for drift analysis.
-- [ ] **API-OFFER-18 (M)** `GET /api/v1/ride-offers/summary/daily`: offered/evaluated/accepted/rejected/expired/completed/cancelled; acceptance/completion rates; avg fare/profit.
+- [x] **API-OFFER-17 (S)** Recompute server-side on sync; store `client_*` and `server_*` for drift analysis.
+- [x] **API-OFFER-18 (M)** `GET /api/v1/ride-offers/summary/daily`: offered/evaluated/accepted/rejected/expired/completed/cancelled; acceptance/completion rates; avg fare/profit.
 - [ ] **API-OFFER-19 (M, optional)** Daily aggregate table/job (`daily_offer_metrics`) if volume warrants.
 - [ ] **API-OFFER-20 (S)** Link completed `ride_trip` to originating offer; update actual fields.
 - [ ] **API-OFFER-21 (S)** Form Requests, validation, ownership authorization, tests.

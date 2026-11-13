@@ -12,14 +12,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed>|null $raw_payload
  */
 #[Fillable([
-    'client_uuid', 'user_id', 'vehicle_id', 'daily_shift_id', 'platform', 'external_offer_id',
-    'currency_code', 'offered_fare', 'surge_amount', 'tip_amount', 'toll_amount',
-    'estimated_distance_km', 'estimated_duration_minutes', 'pickup_distance_km',
-    'actual_distance_km', 'actual_fare', 'actual_duration_minutes', 'source', 'ocr_confidence',
-    'raw_payload', 'status', 'expires_at', 'received_at', 'decided_at', 'completed_at',
-    'cancelled_at', 'cancellation_reason', 'client_verdict', 'client_net_profit_estimate',
-    'client_break_even_fare', 'server_verdict', 'server_net_profit_estimate',
-    'server_break_even_fare', 'calculation_version', 'config_snapshot', 'ride_trip_id',
+    'client_uuid', 'user_id', 'vehicle_id', 'daily_shift_id', 'platform', 'service_type',
+    'availability_type', 'rider_rating', 'rider_trip_count', 'rider_verified',
+    'external_offer_id', 'currency_code', 'offered_fare', 'surge_amount', 'tip_amount',
+    'toll_amount', 'payment_method', 'estimated_distance_km', 'estimated_duration_minutes',
+    'estimated_pickup_duration_minutes', 'pickup_distance_km', 'pickup_address',
+    'destination_address', 'actual_distance_km', 'actual_fare', 'actual_duration_minutes',
+    'source', 'ocr_confidence', 'raw_payload', 'status', 'expires_at', 'received_at',
+    'decided_at', 'completed_at', 'cancelled_at', 'cancellation_reason', 'client_verdict',
+    'client_net_profit_estimate', 'client_break_even_fare', 'server_verdict',
+    'server_net_profit_estimate', 'server_break_even_fare', 'calculation_version',
+    'config_snapshot', 'ride_trip_id',
 ])]
 class RideOffer extends Model
 {
@@ -54,6 +57,7 @@ class RideOffer extends Model
             'surge_amount' => 'decimal:2',
             'tip_amount' => 'decimal:2',
             'toll_amount' => 'decimal:2',
+            'rider_rating' => 'decimal:2',
             'estimated_distance_km' => 'decimal:3',
             'pickup_distance_km' => 'decimal:3',
             'actual_distance_km' => 'decimal:3',
@@ -63,6 +67,7 @@ class RideOffer extends Model
             'client_break_even_fare' => 'decimal:2',
             'server_net_profit_estimate' => 'decimal:2',
             'server_break_even_fare' => 'decimal:2',
+            'rider_verified' => 'boolean',
             'raw_payload' => 'array',
             'config_snapshot' => 'array',
             'expires_at' => 'datetime',

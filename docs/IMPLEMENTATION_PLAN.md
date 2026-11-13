@@ -112,7 +112,7 @@
 - [ ] **API-OFFER-10 (S)** Nullable FK `ride_trips.ride_offer_id` or `ride_offers.ride_trip_id`; choose one direction and document.
 
 #### Endpoints & rules
-- [ ] **API-OFFER-11 (M)** `POST /api/v1/ride-offers/sync`: batch upsert offers + events, idempotent, partial success, per-item errors.
+- [x] **API-OFFER-11 (M)** `POST /api/v1/ride-offers/sync`: batch upsert offers + events, idempotent, partial success, per-item errors.
 - [ ] **API-OFFER-12 (S)** `GET /api/v1/ride-offers`: filters (platform, status, date range), pagination, sorting.
 - [ ] **API-OFFER-13 (S)** `GET /api/v1/ride-offers/{id}`.
 - [ ] **API-OFFER-14 (S)** `POST /api/v1/ride-offers/evaluate`: server-side fallback for web/other clients; target p95 < 300 ms; not used by mobile critical path.

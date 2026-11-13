@@ -96,7 +96,7 @@
 - [ ] **API-OFFER-05 (S)** Cross-check the npm `gig-economics` package outputs against PHP in CI using the shared fixtures.
 
 #### Data model
-- [x] **API-OFFER-06 (M)** Migration `ride_offers`:
+- [x] **API-OFFER-06 (M)** Migration `ride_offers` (+ service_type, availability_type, rider_rating, rider_trip_count, rider_verified, pickup/destination addresses, pickup duration, payment_method):
   `client_uuid`, `user_id`, `vehicle_id`, `daily_shift_id`, `platform`, `external_offer_id`, `currency_code`,
   `offered_fare`, `surge_amount`, `tip_amount`, `toll_amount`,
   `estimated_distance_km`, `estimated_duration_minutes`, `pickup_distance_km`,

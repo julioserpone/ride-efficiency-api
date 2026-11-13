@@ -20,6 +20,18 @@ Route::prefix('v1')->group(function () {
     Route::get('/auth/user', [AuthTokenController::class, 'show'])
         ->middleware('auth:sanctum')
         ->name('api.v1.auth.user');
+    Route::post('/auth/password', [AuthTokenController::class, 'changePassword'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.password.change');
+    Route::get('/auth/sessions', [AuthTokenController::class, 'sessions'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.sessions.index');
+    Route::delete('/auth/sessions/{tokenId}', [AuthTokenController::class, 'revokeSession'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.sessions.destroy');
+    Route::delete('/auth/sessions', [AuthTokenController::class, 'revokeAllSessions'])
+        ->middleware('auth:sanctum')
+        ->name('api.v1.auth.sessions.destroy-all');
     Route::delete('/auth/token', [AuthTokenController::class, 'destroy'])
         ->middleware('auth:sanctum')
         ->name('api.v1.auth.token.destroy');

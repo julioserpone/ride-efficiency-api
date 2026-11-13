@@ -71,10 +71,10 @@
 
 ### 4.1 EPIC API-AUTH — Authentication & account security
 
-- [ ] **API-AUTH-01 (M)** List active sessions/devices (token name, last used, IP, user agent) and revoke one/all.
-- [ ] **API-AUTH-02 (S)** Authenticated password change with current-password confirmation.
+- [x] **API-AUTH-01 (M)** List active sessions/devices (token name, last used, IP, user agent) and revoke one/all.
+- [x] **API-AUTH-02 (S)** Authenticated password change with current-password confirmation.
 - [ ] **API-AUTH-03 (M)** Password reset by email; staging uses Mailpit/log; production provider decided later (free tier preferred).
-- [ ] **API-AUTH-04 (S)** Password-rotation **reminder only**: `password_changed_at`, configurable interval (default 6 months), response header/flag; never hard-lock.
+- [x] **API-AUTH-04 (S)** Password-rotation **reminder only**: `password_changed_at`, configurable interval (default 6 months), response header/flag; never hard-lock.
 - [ ] **API-AUTH-05 (L)** 2FA TOTP with `pragmarx/google2fa`: setup secret + QR payload, confirm, recovery codes, verify at login, disable.
 - [ ] **API-AUTH-06 (S)** Rate limiting + progressive lockout for login, 2FA and reset.
 - [ ] **API-AUTH-07 (S)** Auth audit log (login success/failure, 2FA enabled/disabled, token revoked).

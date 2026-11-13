@@ -114,4 +114,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Password Rotation Reminder
+    |--------------------------------------------------------------------------
+    |
+    | Number of days after `password_changed_at` before the API flags the
+    | account as due for a rotation reminder. Reminder only: never hard-locks.
+    |
+    */
+
+    'password_rotation_days' => (int) env('AUTH_PASSWORD_ROTATION_DAYS', 180),
+
 ];

@@ -116,8 +116,8 @@
 - [x] **API-OFFER-12 (S)** `GET /api/v1/ride-offers`: filters (platform, status, date range), pagination, sorting.
 - [x] **API-OFFER-13 (S)** `GET /api/v1/ride-offers/{id}`.
 - [x] **API-OFFER-14 (S)** `POST /api/v1/ride-offers/evaluate`: server-side fallback for web/other clients; target p95 < 300 ms; not used by mobile critical path.
-- [ ] **API-OFFER-15 (S)** State machine: `received → evaluated → accepted/rejected/expired`; `accepted → completed/cancelled`; reject invalid transitions with 422.
-- [ ] **API-OFFER-16 (S)** Expiration job for `expires_at`; emits `expired` event.
+- [x] **API-OFFER-15 (S)** State machine: `received → evaluated → accepted/rejected/expired`; `accepted → completed/cancelled`; reject invalid transitions with 422.
+- [x] **API-OFFER-16 (S)** Expiration job for `expires_at`; emits `expired` event.
 - [x] **API-OFFER-17 (S)** Recompute server-side on sync; store `client_*` and `server_*` for drift analysis.
 - [x] **API-OFFER-18 (M)** `GET /api/v1/ride-offers/summary/daily`: offered/evaluated/accepted/rejected/expired/completed/cancelled; acceptance/completion rates; avg fare/profit.
 - [ ] **API-OFFER-19 (M, optional)** Daily aggregate table/job (`daily_offer_metrics`) if volume warrants.

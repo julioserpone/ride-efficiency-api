@@ -23,6 +23,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class RideOffer extends Model
 {
+    public const STATUSES = ['received', 'evaluated', 'accepted', 'rejected', 'expired', 'completed', 'cancelled'];
+
+    public const TRANSITIONS = [
+        'received' => ['evaluated', 'accepted', 'rejected', 'expired'],
+        'evaluated' => ['accepted', 'rejected', 'expired'],
+        'accepted' => ['completed', 'cancelled'],
+        'rejected' => [],
+        'expired' => [],
+        'completed' => [],
+        'cancelled' => [],
+    ];
+
+    public function canTransitionTo(string $status): bool
+    {
+        if ($status === $this->status) {
+            return true;
+        }
+
+        return in_array($status, self::TRANSITIONS[$this->status] ?? [], true);
+    }
+
     /**
      * @return array<string, string>
      */

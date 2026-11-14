@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\CountryController;
 use App\Http\Controllers\Api\EnergyInvoiceController;
 use App\Http\Controllers\Api\EnergyProductController;
 use App\Http\Controllers\Api\ProfitabilityProfileController;
+use App\Http\Controllers\Api\RideOfferCatalogController;
 use App\Http\Controllers\Api\RideOfferController;
 use App\Http\Controllers\Api\RideTripController;
 use App\Http\Controllers\Api\ShiftController;
@@ -67,6 +68,12 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // Profitability profile for local mobile calculation
     Route::get('/profitability/profile', [ProfitabilityProfileController::class, 'show'])
         ->name('api.v1.profitability.profile');
+
+    // Offer catalogue shared with web and mobile clients
+    Route::get('/ride-offers/catalog', [RideOfferCatalogController::class, 'index'])
+        ->name('api.v1.ride-offers.catalog.index');
+    Route::post('/ride-offers/catalog/normalize', [RideOfferCatalogController::class, 'normalize'])
+        ->name('api.v1.ride-offers.catalog.normalize');
 
     // Offer sync (idempotent, batch, partial success)
     Route::post('/ride-offers/sync', [RideOfferController::class, 'sync'])

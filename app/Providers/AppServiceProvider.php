@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Offers\ServiceTypeCatalog;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +16,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The offer catalogue is configuration, so it is built from `config/`
+        // instead of letting the container guess its scalar constructor args.
+        $this->app->singleton(ServiceTypeCatalog::class, fn (): ServiceTypeCatalog => ServiceTypeCatalog::fromConfig());
     }
 
     /**

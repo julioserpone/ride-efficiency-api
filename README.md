@@ -84,6 +84,15 @@ GET     /api/v1/ride-trips              Paginated individual ride profitability
 GET     /api/v1/ride-trips/{id}         Show a calculated ride
 POST    /api/v1/vehicles/{id}/trips     Calculate and save one ride's profitability
 
+GET     /api/v1/ride-offers/catalog        Canonical platform, service type and availability codes
+POST    /api/v1/ride-offers/catalog/normalize  Resolve OCR labels to canonical codes
+POST    /api/v1/ride-offers/sync           Batch upsert offers and events (idempotent)
+POST    /api/v1/ride-offers/evaluate       Server-side fallback evaluation
+GET     /api/v1/ride-offers                Paginated offers (platform, status, date range)
+GET     /api/v1/ride-offers/{id}           Show an offer with its events
+PATCH   /api/v1/ride-offers/{id}           Move an offer through its status machine
+GET     /api/v1/ride-offers/summary/daily  Offer funnel and averages
+
 GET     /api/v1/stats/weekly            Aggregated metrics, last 8 weeks
 GET     /api/v1/stats/monthly           Aggregated metrics, last 6 months
 GET     /api/v1/stats/summary           Global totals, averages, best/worst shift
@@ -112,7 +121,22 @@ GET     /api/v1/stats/efficiency        Profit per km/hour, fuel cost per km
 - `vehicles` — a user's country, energy type/unit and measured distance per energy unit.
 - `ride_trips` — each trip's platform, distance, fare, itemized costs, net profit,
   break-even fare and accept/marginal/reject verdict.
+- `ride_offers` / `ride_offer_events` — offers received from Uber, DiDi and inDrive with
+  their client/server verdicts, plus an append-only funnel. `service_type` and
+  `availability_type` are canonical codes published by `GET /api/v1/ride-offers/catalog`
+  (defined in `config/ride_offer_platforms.php`); `service_type_raw` keeps the label as it
+  appeared on screen and `ocr_confidence_by_field` stores per-field confidence.
+- `ride_offer_scans` — one row per captured screenshot: retained image path and hash, OCR
+  provider/text/tokens, the device extraction and the server extraction, reconciliation
+  status and the link to the offer it produced. Source images are never returned by the API.
 - `countries` — currency and depreciation rate used by profitability calculations.
+
+The platform catalogue is the single source of truth for both the API and the mobile
+app: `uber` (UberX, UberX Priority, UberX Share, Comfort, Comfort Electric, Black, Black
+SUV, XL, Pet, Electric, Van, Taxi, Reserve, Connect, Intercity, Moto, Auto), `didi`
+(Express, Taxi, Set your fare, Moto, Comfort, Programado) and `indrive` (City, Intercity,
+Courier). An unrecognized type is never invented: it is stored as `null` with the raw
+label so it can be reviewed.
 
 Invoice endpoints and their backing table use the neutral `energy-invoices` /
 `energy_invoices` names. The former `/api/v1/fuel-invoices` endpoints are removed;

@@ -123,6 +123,9 @@
 - [x] **API-OFFER-19 (M, optional)** Daily aggregate table/job (`daily_offer_metrics`) if volume warrants.
 - [x] **API-OFFER-20 (S)** Link completed `ride_trip` to originating offer; update actual fields.
 - [ ] **API-OFFER-21 (S)** Form Requests, validation, ownership authorization, tests.
+- [x] **API-OFFER-22 (M)** Offer OCR catalogue: `config/ride_offer_platforms.php`, `ServiceTypeCatalog` and `GET/POST /ride-offers/catalog(/normalize)`. (`docs/OFFER_OCR_PLAN.md` OFFER-OCR-01)
+- [x] **API-OFFER-23 (M)** `ride_offer_scans` table and additive `ride_offers` columns (`service_type_raw`, `ocr_confidence_by_field`, `ride_offer_scan_id`), reversible. (OFFER-OCR-02)
+- [ ] **API-OFFER-24 → 31** Tesseract text provider, preprocess, platform parsers, OCR job, `POST/GET /ride-offers/ocr`, image retention. See `docs/OFFER_OCR_PLAN.md`.
 
 **Acceptance:** mobile can sync 100 offers with retries and 0 duplicates; API recomputes and stores both verdicts; daily funnel is queryable; invalid transitions rejected.
 

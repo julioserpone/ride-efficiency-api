@@ -10,19 +10,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property array<string, mixed>|null $config_snapshot
  * @property array<string, mixed>|null $raw_payload
+ * @property array<string, mixed>|null $ocr_confidence_by_field
  */
 #[Fillable([
     'client_uuid', 'user_id', 'vehicle_id', 'daily_shift_id', 'platform', 'service_type',
-    'availability_type', 'rider_rating', 'rider_trip_count', 'rider_verified',
+    'service_type_raw', 'availability_type', 'rider_rating', 'rider_trip_count', 'rider_verified',
     'external_offer_id', 'currency_code', 'offered_fare', 'surge_amount', 'tip_amount',
     'toll_amount', 'payment_method', 'estimated_distance_km', 'estimated_duration_minutes',
     'estimated_pickup_duration_minutes', 'pickup_distance_km', 'pickup_address',
     'destination_address', 'actual_distance_km', 'actual_fare', 'actual_duration_minutes',
-    'source', 'ocr_confidence', 'raw_payload', 'status', 'expires_at', 'received_at',
+    'source', 'ocr_confidence', 'ocr_confidence_by_field', 'raw_payload', 'status', 'expires_at', 'received_at',
     'decided_at', 'completed_at', 'cancelled_at', 'cancellation_reason', 'client_verdict',
     'client_net_profit_estimate', 'client_break_even_fare', 'server_verdict',
     'server_net_profit_estimate', 'server_break_even_fare', 'calculation_version',
-    'config_snapshot', 'ride_trip_id',
+    'config_snapshot', 'ride_trip_id', 'ride_offer_scan_id',
 ])]
 class RideOffer extends Model
 {
@@ -70,6 +71,7 @@ class RideOffer extends Model
             'rider_verified' => 'boolean',
             'raw_payload' => 'array',
             'config_snapshot' => 'array',
+            'ocr_confidence_by_field' => 'array',
             'expires_at' => 'datetime',
             'received_at' => 'datetime',
             'decided_at' => 'datetime',
@@ -116,5 +118,13 @@ class RideOffer extends Model
     public function events(): HasMany
     {
         return $this->hasMany(RideOfferEvent::class);
+    }
+
+    /**
+     * @return BelongsTo<RideOfferScan, $this>
+     */
+    public function scan(): BelongsTo
+    {
+        return $this->belongsTo(RideOfferScan::class, 'ride_offer_scan_id');
     }
 }

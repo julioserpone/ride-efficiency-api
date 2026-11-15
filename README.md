@@ -138,6 +138,13 @@ SUV, XL, Pet, Electric, Van, Taxi, Reserve, Connect, Intercity, Moto, Auto), `di
 Courier). An unrecognized type is never invented: it is stored as `null` with the raw
 label so it can be reviewed.
 
+Offer OCR is a server-side fallback, never part of the driver's critical path: mobile
+extracts and calculates on the device and uploads the capture afterwards. The server uses
+Tesseract by default (`config/ride_offer_ocr.php`) and treats a missing binary or language
+data as `provider_unavailable` instead of failing the request. Text recognition and image
+preprocessing are covered by `Process::fake()` and synthetic GD fixtures; see
+[`docs/TESTING.md`](docs/TESTING.md).
+
 Invoice endpoints and their backing table use the neutral `energy-invoices` /
 `energy_invoices` names. The former `/api/v1/fuel-invoices` endpoints are removed;
 mobile and web clients must switch to `/api/v1/energy-invoices`.

@@ -19,10 +19,12 @@ class CountryFactory extends Factory
      */
     public function definition(): array
     {
+        $suffixes = range('A', 'Z');
+
         return [
             // Reserved-looking codes (QA..QZ) so a random country never collides
             // with the real ISO codes that tests create explicitly (US, EC, MX).
-            'code' => 'Q'.chr(65 + $this->faker->unique()->numberBetween(0, 25)),
+            'code' => 'Q'.$suffixes[$this->faker->unique()->numberBetween(0, 25)],
             'name' => $this->faker->country(),
             'currency_code' => $this->faker->currencyCode(),
             'currency_symbol' => '$',

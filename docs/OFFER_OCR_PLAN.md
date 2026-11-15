@@ -1,336 +1,340 @@
-# Plan — Lectura (OCR) de ofertas Uber / DiDi / inDrive
+# Plan — Offer OCR (Uber / DiDi / inDrive)
 
-> **Estado:** propuesta v2 (modo plan, sin cambios de código aplicados). Decisiones cerradas:
-> Tesseract por defecto, registro automático sin confirmación y extracción **nativa en mobile**.
-> **Alcance:** API Laravel 13 (`/api/v1`) **y** `ride-efficiency-mobile` (extracción + cálculo
-> local en el dispositivo). El API no es el camino crítico de la respuesta al conductor.
+> **Status:** proposal v2 (plan mode, no code changes applied). Closed decisions:
+> Tesseract by default, automatic registration without confirmation, and **native
+> extraction on mobile**.
+> **Scope:** Laravel 13 API (`/api/v1`) **and** `ride-efficiency-mobile` (on-device
+> extraction + local calculation). The API is never on the critical path of the
+> driver's response.
 > **Fixtures:** `tests/oferta_uber_exclusiva.jpeg`, `tests/oferta_uber_viaje_disponible.jpeg`,
 > `tests/oferta_didi.jpeg`, `tests/oferta_didi_exclusiva.jpeg`, `tests/oferta_lista_didi.jpeg`.
 
 ---
 
-## 1. Revisión de la funcionalidad de ofertas actual
+## 1. Review of the current offers functionality
 
-### 1.1 Lo que ya existe y funciona
+### 1.1 What already exists and works
 
-| Capa    | Elemento                                                                                                                          | Notas                                                                                                                                                                                                                                                                                          |
+| Layer   | Element                                                                                                                          | Notes                                                                                                                                                                                                                                                                                          |
 | :------ | :-------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Datos   | `ride_offers`                                                                                                                     | 45 columnas: plataforma, `service_type`, `availability_type`, tarifa, surge, propina, peaje, distancias y duraciones (viaje y recogida), direcciones, rating/viajes/verificación del pasajero, `expires_at`, `source`, `ocr_confidence`, `raw_payload`, estados y veredictos cliente/servidor. |
-| Datos   | `ride_offer_events`                                                                                                               | Funnel append-only con deduplicación por `(event_type, occurred_at)`.                                                                                                                                                                                                                          |
-| Datos   | `daily_offer_metrics`                                                                                                             | Agregado diario por usuario (`AggregateDailyOfferMetricsJob`).                                                                                                                                                                                                                                 |
-| API     | `POST /api/v1/ride-offers/sync`                                                                                                   | Upsert por lote (`client_uuid` idempotente), éxito parcial, eventos, recomputo server-side.                                                                                                                                                                                                    |
-| API     | `POST /api/v1/ride-offers/evaluate`                                                                                               | Fallback sin persistencia.                                                                                                                                                                                                                                                                     |
-| API     | `GET /ride-offers`, `GET /ride-offers/{id}`, `PATCH /ride-offers/{id}`                                                            | Filtros, paginación, máquina de estados (`received → evaluated → accepted/rejected/expired`, `accepted → completed/cancelled`).                                                                                                                                                                |
-| API     | `GET /ride-offers/summary/daily`                                                                                                  | Funnel y promedios.                                                                                                                                                                                                                                                                            |
-| Jobs    | `ExpireRideOffersJob` (cada minuto), `AggregateDailyOfferMetricsJob` (diario)                                                     | Registrados en `routes/console.php`.                                                                                                                                                                                                                                                           |
-| Cálculo | `RecomputeRideOfferProfitabilityAction`                                                                                           | Usa `julioserpone/gig-economics`; requiere vehículo + precio de energía; `Platform::tryFrom()` ya soporta `uber`, `didi`, `indrive`, `lyft`, `custom`.                                                                                                                                         |
-| OCR     | `ReceiptAnalysisProvider` + `ReceiptAnalysisProviderManager` + `AzureDocumentIntelligenceClient`                                  | Solo `prebuilt-receipt`; pensado para facturas.                                                                                                                                                                                                                                                |
-| Tests   | `RideOfferSyncTest`, `RideOfferApiTest`, `RideOfferStateMachineTest`, `RideOfferLinkAndAggregateTest`, `OcrProcessingServiceTest` | Cobertura sólida del ciclo de vida; **sin OCR de ofertas**.                                                                                                                                                                                                                                    |
+| Data    | `ride_offers`                                                                                                                     | 45 columns: platform, `service_type`, `availability_type`, fare, surge, tip, toll, distances and durations (trip and pickup), addresses, rider rating/trips/verification, `expires_at`, `source`, `ocr_confidence`, `raw_payload`, statuses and client/server verdicts. |
+| Data    | `ride_offer_events`                                                                                                               | Append-only funnel with deduplication on `(event_type, occurred_at)`.                                                                                                                                                                                                                          |
+| Data    | `daily_offer_metrics`                                                                                                             | Daily per-user aggregate (`AggregateDailyOfferMetricsJob`).                                                                                                                                                                                                                                 |
+| API     | `POST /api/v1/ride-offers/sync`                                                                                                   | Batch upsert (`client_uuid` idempotent), partial success, events, server-side recompute.                                                                                                                                                                                                    |
+| API     | `POST /api/v1/ride-offers/evaluate`                                                                                               | Stateless fallback.                                                                                                                                                                                                                                                                     |
+| API     | `GET /ride-offers`, `GET /ride-offers/{id}`, `PATCH /ride-offers/{id}`                                                            | Filters, pagination, state machine (`received → evaluated → accepted/rejected/expired`, `accepted → completed/cancelled`).                                                                                                                                                                |
+| API     | `GET /ride-offers/summary/daily`                                                                                                  | Funnel and averages.                                                                                                                                                                                                                                                                            |
+| Jobs    | `ExpireRideOffersJob` (every minute), `AggregateDailyOfferMetricsJob` (daily)                                                     | Registered in `routes/console.php`.                                                                                                                                                                                                                                                           |
+| Calc    | `RecomputeRideOfferProfitabilityAction`                                                                                           | Uses `julioserpone/gig-economics`; requires vehicle + energy price; `Platform::tryFrom()` already supports `uber`, `didi`, `indrive`, `lyft`, `custom`.                                                                                                                                         |
+| OCR     | `ReceiptAnalysisProvider` + `ReceiptAnalysisProviderManager` + `AzureDocumentIntelligenceClient`                                  | `prebuilt-receipt` only; designed for energy invoices.                                                                                                                                                                                                                                                |
+| Tests   | `RideOfferSyncTest`, `RideOfferApiTest`, `RideOfferStateMachineTest`, `RideOfferLinkAndAggregateTest`, `OcrProcessingServiceTest` | Solid lifecycle coverage; **no offer OCR**.                                                                                                                                                                                                                                    |
 
-### 1.2 Huecos concretos (relevantes para esta tarea)
+### 1.2 Concrete gaps (relevant to this task)
 
-1. **No hay entrada de imagen para ofertas.** `source` admite `ocr`, `ocr_confidence` y
-   `raw_payload` existen, pero no hay endpoint ni job que los produzca (ni desde la app
-   móvil ni como respaldo del servidor).
-2. **No hay taxonomía de tipos.** `platform` y `service_type` son `string(32)` libres, sin
-   catálogo, sin normalización (p. ej. `UberX`, `uber_x`, `Uber X`), sin validación.
-   `availability_type` tampoco tiene valores definidos (exclusivo / prioritario /
-   viaje disponible / set your fare).
-3. **No existe proveedor OCR de texto plano.** El contrato de proveedor devuelve JSON de
-   `prebuilt-receipt`; Tesseract devuelve texto/TSV. Adaptar el proveedor es parte del plan.
-4. **`sync` no deduplica capturas repetidas.** Si el cliente manda dos screenshots de la
-   misma oferta con distinto `client_uuid`, se duplican.
-5. **`ocr_confidence` es un escalar.** En una oferta la confianza es por campo
-   (tarifa, distancias, tipo), no global.
-6. **`expires_at` no se extrae.** Las ofertas caducan en segundos; hoy viene del cliente.
+1. **No image input for offers.** `source`, `ocr_confidence` and `raw_payload` exist, but there
+   is no endpoint or job that produces them (neither from mobile nor as a server fallback).
+2. **No type taxonomy.** `platform` and `service_type` are free `string(32)` with no catalogue
+   or normalisation (`UberX`, `uber_x`, `Uber X`), and no defined values for
+   `availability_type` (exclusive / priority / available trip / set your fare).
+3. **No plain-text OCR provider.** The provider contract returns `prebuilt-receipt` JSON;
+   Tesseract returns text/TSV. Adapting the provider is part of the plan.
+4. **`sync` does not deduplicate repeated captures.** Two screenshots of the same offer with
+   different `client_uuid`s create duplicates.
+5. **`ocr_confidence` is a scalar.** Per-offer confidence is per field (fare, distances, type),
+   not global.
+6. **`expires_at` is not extracted.** Offers expire in seconds; today it comes from the client.
 
 ---
 
-## 2. Validación empírica con Tesseract (hecha en esta revisión)
+## 2. Empirical validation with Tesseract (done in this review)
 
-Entorno local: Tesseract **5.5.3** (eng, spa, osd), PHP 8.5 con `gd`, `imagick`, `bcmath`.
+Local environment: Tesseract **5.5.3** (eng, spa, osd), PHP 8.5 with `gd`, `imagick`, `bcmath`.
 
-| Imagen                                       | `--psm 6` (bloque)                                                                                                                                                                     | `--psm 11` (texto disperso)    |
+| Image                                       | `--psm 6` (block)                                                                                                                                                                     | `--psm 11` (sparse text)    |
 | :------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------- |
-| `oferta_uber_exclusiva.jpeg`                 | `$3.45`, `Identidad digital verificada`, `4.91 (377)`, `+$0.36 por inicio de viaje prioritario`, `11 min (6.3 km)`, `Sta. Elena, Llano Chico`, `Viaje: 17 min (7.6 km)`                | además detecta **`Exclusivo`** |
-| `oferta_uber_viaje_disponible.jpeg`          | `$2.63`, `Identidad digital verificada`, `4.86 (168)`, `13 min (5.5 km)`, `Julio Yanez, Comite del Pueblo`, `Viaje: 14 min (5.8 km)`, `Viaje disponible`                               | igual                          |
-| `oferta_didi_exclusiva.jpeg`                 | `Pago en efectivo`, `$1.56`, `4.78 · 41 viajes`, `7min (3,2km)`, `17 de Septiembre, 1335, Llano Chico`, `9min (5.4km)`, `Pizzería El Tablón, San Isidro del Inca`, `Rechazo permitido` | no recupera etiquetas adicionales |
-| `oferta_didi.jpeg`                           | `Express Nuevo`, `4.88 · 414 viajes`, `(4 min 1.3 km) 23 de Abril, Calderon`, `(17 min 8.9 km) Avenida del Maestro & Melchor Toaza, Kennedy`                                           | ídem                           |
-| `oferta_lista_didi.jpeg` (lista, sin oferta) | `Centro de viajes`, `Express Nuevo`, `No hay más solicitudes`                                                                                                                          | usa `psm 4`                    |
+| `oferta_uber_exclusiva.jpeg`                 | `$3.45`, `Identidad digital verificada`, `4.91 (377)`, `+$0.36 por inicio de viaje prioritario`, `11 min (6.3 km)`, `Sta. Elena, Llano Chico`, `Viaje: 17 min (7.6 km)`                | also detects **`Exclusivo`** |
+| `oferta_uber_viaje_disponible.jpeg`          | `$2.63`, `Identidad digital verificada`, `4.86 (168)`, `13 min (5.5 km)`, `Julio Yanez, Comite del Pueblo`, `Viaje: 14 min (5.8 km)`, `Viaje disponible`                               | same                          |
+| `oferta_didi_exclusiva.jpeg`                 | `Pago en efectivo`, `$1.56`, `4.78 · 41 viajes`, `7min (3,2km)`, `17 de Septiembre, 1335, Llano Chico`, `9min (5.4km)`, `Pizzería El Tablón, San Isidro del Inca`, `Rechazo permitido` | no extra labels                |
+| `oferta_didi.jpeg`                           | `Express Nuevo`, `4.88 · 414 viajes`, `(4 min 1.3 km) 23 de Abril, Calderon`, `(17 min 8.9 km) Avenida del Maestro & Melchor Toaza, Kennedy`                                           | same                          |
+| `oferta_lista_didi.jpeg` (list, no offer)    | `Centro de viajes`, `Express Nuevo`, `No hay más solicitudes`                                                                                                                          | use `psm 4`                   |
 
-**Conclusiones observadas**
+**Observed conclusions**
 
-- **Sí sirve.** El texto de negocio se lee con buena calidad; el ruido es del **mapa**.
-- **El ruido es espacial, no semántico:** letras sueltas de calles del mapa a la izquierda.
-  Se filtra por posición (columna de inicio/longitud), no por contenido.
-- **`psm 6` vs `psm 11`:** `psm 6` reproduce bien el orden de lectura del panel; `psm 11`
-  recupera la etiqueta aislada `Exclusivo` de Uber que `psm 6` pierde. El plan usa
-  **ambos** (`psm 6` para parsing y `psm 11` como refuerzo de etiquetas).
-- **Colores de fondo ayudan:** el panel de oferta es casi blanco (`≈247–255`) y el mapa es
-  azul claro (`≈244,246,255` con trama), lo que permite recortar la zona del panel.
-- **La tipografía pequeña se pierde en la imagen completa.** Recortar + reescalar ×2–3
-  fija `11 min` (que llegaba como `All min`), pero **`Exclusivo`** y signos como `%` siguen
-  siendo frágiles. El tipo de servicio **no debe depender del OCR**: se detecta con la
-  etiqueta y se confirma por contexto/color de la plataforma.
-- **DiDi usa coma decimal** (`3,2km`) y separadores `·`; Uber usa `·` en el rating y `(6.3 km)`.
-- **Riesgo de falsos positivos:** en `oferta_uber_exclusiva` hay una etiqueta de mapa
-  `Ak 491 (377)` (POI), que coincide con el **patrón de rating** (`4.91 (377)`). Cualquier
-  parser basado solo en regex sobre el rating puede confundirlas. Hay que exigir posición y
-  coherencia (rating ≤ 5.00 + conteo en paréntesis + estar en el panel).
+- **It works.** Business text reads with good quality; the noise is the **map**.
+- **Noise is spatial, not semantic:** stray letters from street names on the left. Filtered
+  by position (start column / width), not by content.
+- **`psm 6` vs `psm 11`:** `psm 6` reproduces the panel reading order; `psm 11` recovers
+  Uber's isolated `Exclusivo` label that `psm 6` misses. The plan uses **both** (`psm 6`
+  for parsing, `psm 11` as label reinforcement).
+- **Colours help:** the offer panel is almost white (`≈247–255`) while the map is light
+  blue (`≈244,246,255` with a pattern), which lets us crop the panel region.
+- **Small type is lost in the full image.** Cropping + scaling ×2–3 fixes `11 min` (which
+  came back as `All min`), but **`Exclusivo`** and signs such as `%` remain fragile.
+  Service type **must not depend on OCR**: detect it from the label and confirm from the
+  platform context/colour.
+- **DiDi uses decimal commas** (`3,2km`) and `·` separators; Uber uses `·` in the rating
+  and `(6.3 km)`.
+- **False-positive risk:** in `oferta_uber_exclusiva` a map label `Ak 491 (377)` (POI)
+  matches the **rating pattern** (`4.91 (377)`). A regex-only rating parser could confuse
+  them. Require position and coherence (rating ≤ 5.00 + parenthesised count + located in
+  the panel).
 
 ---
 
-## 3. Taxonomía de plataformas y tipos de servicio
+## 3. Platform taxonomy and service types
 
-El contrato debe ser **estable** aunque el OCR falle. Propuesta de catálogo versionado en
-`config/ride_offer_platforms.php` (no en BD: es configuración de dominio, no dato de usuario)
-y expuesto por `GET /api/v1/ride-offers/catalog` para que **mobile** use exactamente los
-mismos códigos canónicos que el servidor (una sola fuente de verdad, sin duplicar la lista
-en TypeScript).
+The contract must be **stable** even when OCR fails. Proposed versioned catalogue in
+`config/ride_offer_platforms.php` (not in the DB: it is domain configuration, not user
+data) exposed by `GET /api/v1/ride-offers/catalog` so that **mobile** uses exactly the
+same canonical codes as the server (single source of truth, no duplicated list in
+TypeScript).
 
-### 3.1 Plataformas (`platform`, valores que ya acepta `Platform`)
+### 3.1 Platforms (`platform`, values already accepted by `Platform`)
 
-`uber`, `didi`, `indrive`, `lyft` (reservado), `custom`.
+`uber`, `didi`, `indrive`, `lyft` (reserved), `custom`.
 
 ### 3.2 Uber (`service_type`)
 
-UberX, **UberX Priority** (“Uber Priority”), **UberX Share** (“Uber Juntos”), Uber Comfort,
+UberX, **UberX Priority** ("Uber Priority"), **UberX Share** ("Uber Juntos"), Uber Comfort,
 Uber Comfort Electric, Uber Black, Uber Black SUV, UberXL, Uber Pet, Uber Electric, Uber
 Van, Uber Taxi, Uber Reserve, Uber Connect, Uber Intercity/Intercity (Interurbano),
-Uber Moto (2 o 3 ruedas), Uber Auto (rickshaw). Fuente de referencia:
-[Uber — Servicios y tipos de viaje](https://www.uber.com/ec/es/ride/ride-options/) y
+Uber Moto (2 or 3 wheels), Uber Auto (rickshaw). Reference:
 [Uber — Ride options](https://www.uber.com/us/en/ride/ride-options/).
 
-Normalización a `snake_case` canónico: `uberx`, `uberx_priority`, `uberx_share`,
+Canonical `snake_case` normalisation: `uberx`, `uberx_priority`, `uberx_share`,
 `comfort`, `comfort_electric`, `black`, `black_suv`, `xl`, `pet`, `electric`, `van`,
 `taxi`, `reserve`, `connect`, `intercity`, `moto`, `auto`.
 
 ### 3.3 DiDi (`service_type`)
 
 `express` (Express / Express Nuevo / DiDi Express), `taxi` (DiDi Taxi),
-`set_your_fare` (Set your fare — el conductor propone tarifa), `moto`, `comfort`,
-`priority`/`programado`, `list` (**pantalla “Centro de viajes”, no es una oferta activa**).
-Fuente: [DiDi Pasajero Ecuador](https://web.didiglobal.com/ec/pasajero/).
-Para países con catálogo diferente (MX/BR/CO), el catálogo es por `country_code` opcional;
-el valor desconocido cae a `custom:<texto normalizado>` y se registra como etiqueta.
+`set_your_fare` (Set your fare — driver proposes the fare), `moto`, `comfort`,
+`priority`/`scheduled`, `list` (**"Centro de viajes" screen, not an active offer**).
+Reference: [DiDi Pasajero Ecuador](https://web.didiglobal.com/ec/pasajero/).
+For countries with a different catalogue (MX/BR/CO), the catalogue is optionally keyed by
+`country_code`; an unknown value falls back to `custom:<normalised text>` and is logged
+as a label.
 
-### 3.4 inDrive (futuro)
+### 3.4 inDrive (future)
 
-`city` (tarifa negociada, el conductor propone), `intercity`, `courier`. No se implementa
-lógica ahora: solo entra en el catálogo y en el contrato.
+`city` (negotiated fare, driver proposes), `intercity`, `courier`. No logic now: only
+enters the catalogue and the contract.
 
-### 3.5 Tipo de asignación (`availability_type`)
+### 3.5 Assignment type (`availability_type`)
 
-Hoy es `string(32)` libre. Valores propuestos:
+Currently a free `string(32)`. Proposed values:
 
-| Valor            | Señal en pantalla                                                         |
+| Value            | On-screen signal                                                          |
 | :--------------- | :------------------------------------------------------------------------ |
-| `exclusive`      | “Exclusivo” (Uber), “Exclusiva”, sin contador de otros conductores (DiDi) |
-| `priority`       | “+$0.36 por inicio de viaje prioritario”, “Priority”                      |
-| `available_trip` | “Viaje disponible” (Uber), lista de solicitudes sin asignación            |
-| `set_your_fare`  | “Set your fare / Establece tu tarifa”                                     |
-| `metered`        | DiDi Taxi (tarifa por taxímetro/estimada, no fija)                        |
-| `unknown`        | No detectable                                                             |
+| `exclusive`      | "Exclusivo" (Uber), "Exclusiva", no counter of other drivers (DiDi)       |
+| `priority`       | "+$0.36 por inicio de viaje prioritario", "Priority"                      |
+| `available_trip` | "Viaje disponible" (Uber), list of requests without assignment             |
+| `set_your_fare`  | "Set your fare / Establece tu tarifa"                                     |
+| `metered`        | DiDi Taxi (metered/estimated fare, not fixed)                             |
+| `unknown`        | Not detectable                                                            |
 
 ---
 
-## 4. Arquitectura propuesta
+## 4. Proposed architecture
 
-### 4.0 Flujo móvil-first (camino crítico, en el dispositivo)
+### 4.0 Mobile-first flow (critical path, on the device)
 
-Requisito: **mobile no espera al API** para mostrar el veredicto. La captura se procesa
-nativamente y la imagen se envía después, en segundo plano.
+Requirement: **mobile never waits for the API** to show the verdict. The capture is
+processed natively and the image is sent afterwards, in the background.
 
 ```
-mobile: detección de oferta (accesibilidad / notificación / screenshot)
+mobile: offer detected (accessibility / notification / screenshot)
    │
-   ├─1─► RideOfferOcrService (nativo, ON-DEVICE)
-   │       ├─ preproceso en el dispositivo (crop por color de panel + escala)
-   │       ├─ OCR local: ML Kit Text Recognition (Android/iOS) o Tesseract nativo
-   │       └─ parser por plataforma (misma spec de reglas que el servidor)
+   ├─1─► RideOfferOcrService (native, ON-DEVICE)
+   │       ├─ on-device preprocessing (panel crop by colour + scaling)
+   │       ├─ local OCR: ML Kit Text Recognition (Android/iOS) or native Tesseract
+   │       └─ per-platform parser (same rule spec as the server)
    │
    ├─2─► CalculateOfferProfitability (npm `gig-economics`, local, < 100 ms)
-   │       └─ veredicto mostrado al conductor SIN red
+   │       └─ verdict shown to the driver WITHOUT network
    │
-   └─3─► Cola local persistente (SQLite/AsyncStorage) → subida diferida
-           POST /api/v1/ride-offers/ocr  (imagen + resultado local)   ── 202
+   └─3─► local persistent queue (SQLite/AsyncStorage) → deferred upload
+           POST /api/v1/ride-offers/ocr  (image + local result)   ── 202
              │
              ▼
-     StoreRideOfferOcrRequest ── idempotente por `client_uuid` + `image_hash`
+     StoreRideOfferOcrRequest ── idempotent on `client_uuid` + `image_hash`
              │
              ▼
      RideOfferOcrScan (pending)
-        ├─ UpsertRideOfferAction (inmediato en el 202: client_extraction o placeholder)
-        └─ ProcessRideOfferOcrJob (cola, tesseract)
-             ├─ PreprocessRideOfferImageAction   (GD/Imagick: crop panel, escala ×2.5)
+        ├─ UpsertRideOfferAction (immediate on 202: client_extraction or placeholder)
+        └─ ProcessRideOfferOcrJob (queued, tesseract)
+             ├─ PreprocessRideOfferImageAction   (GD/Imagick: crop panel, scale ×2.5)
              ├─ TesseractTextRecognitionProvider (psm 6 + psm 11 → tokens)
-             ├─ ExtractRideOfferDataAction       (reglas por plataforma, confianza por campo)
-             ├─ Reconciliación con el resultado local (ver §4.4)
-             └─ Enriquecer la MISMA oferta (nunca se duplica; sin confirmación)
+             ├─ ExtractRideOfferDataAction       (per-platform rules, per-field confidence)
+             ├─ Reconciliation against local result (see §4.4)
+             └─ Enrich the SAME offer (never duplicated; no confirmation)
                 │
                 ▼
-        RecomputeRideOfferProfitabilityAction (veredicto servidor)
+        RecomputeRideOfferProfitabilityAction (server verdict)
 ```
 
-**Regla de disponibilidad:** el veredicto mostrado al conductor **nunca** depende de la
-red. Con el API caído, el móvil sigue extrayendo y calculando; la cola reintenta después.
+**Availability rule:** the verdict shown to the driver **never** depends on the network.
+With the API down, mobile keeps extracting and calculating; the queue retries later.
 
-### 4.4 Reconciliación móvil ↔ servidor
+### 4.4 Mobile ↔ server reconciliation
 
-| Caso | Regla |
+| Case | Rule |
 | :--- | :--- |
-| El payload de `POST /ocr` trae `client_extraction` | Se persiste tal cual en `ride_offer_scans.client_extraction`; el servidor **no** confía en él para calcular. |
-| OCR servidor con `confidence ≥ min_confidence` | Se comparan `offered_fare`, `estimated_distance_km`, `platform`. Si coinciden (tolerancia ±0.01 / ±0.05 km) → `confirmed`. |
-| Divergencia en campos críticos | `discrepancy`, se conserva la extracción **del servidor** como autoritativa y se registra `discrepancies` (móvil vs servidor) para medir la precisión de ambos motores. |
-| OCR del servidor ilegible | Se usa la extracción local (ya validada por el móvil) y se marca `source=ocr_mobile`; la oferta queda registrada igualmente. |
-| Scan sin resultado local | Flujo puramente servidor (clientes web / respaldo). |
-| Scan sin `client_extraction` (API caía al capturar) | Se registra con placeholder en el `202` y el job la completa; si el OCR falla queda `review_required` **con oferta registrada**. |
+| `POST /ocr` payload carries `client_extraction` | Persisted as-is in `ride_offer_scans.client_extraction`; the server **does not** trust it for calculation. |
+| Server OCR with `confidence ≥ min_confidence` | Compare `offered_fare`, `estimated_distance_km`, `platform`. If they match (tolerance ±0.01 / ±0.05 km) → `confirmed`. |
+| Divergence on critical fields | `discrepancy`; server extraction is authoritative and `discrepancies` (mobile vs server) are logged to measure both engines' accuracy. |
+| Server OCR unreadable | Use the local extraction (already validated on device) and mark `source=ocr_mobile`; the offer is still registered. |
+| Scan without local result | Pure server flow (web clients / fallback). |
+| Scan without `client_extraction` (API was down at capture) | Registered with a placeholder on 202 and completed by the job; if OCR fails it stays `review_required` **with the offer registered**. |
 
-El objetivo de la reconciliación no es bloquear: es **reparar** datos y medir qué motor
-acierta más por plataforma y versión de UI.
+The goal of reconciliation is not to block: it **repairs** data and measures which engine
+is more accurate per platform and UI version.
 
-### 4.1 Reutilización de lo existente (sin reinventar)
+### 4.1 Reuse of existing pieces (do not reinvent)
 
-- **Un nuevo contrato de proveedor de texto**: `TextRecognitionProvider::recognize(bytes, mime, options): OcrTextResult`
-  con `tesseract` y `azure-read` (prebuilt-read) como implementaciones. El contrato
-  `ReceiptAnalysisProvider`/`ReceiptDataExtractor` **no se toca** (sigue siendo facturas).
-  Un `TextRecognitionProviderManager` sigue el mismo patrón que `ReceiptAnalysisProviderManager`.
-- **Persistencia:** la imagen se guarda en `local` con el mismo patrón que `EnergyInvoiceController`
-  (`ride_offers/{user_id}/{uuid}.jpg`), validando MIME y tamaño.
-- **`sync` y la máquina de estados** se reutilizan: el OCR produce payload compatible con
-  `SyncRideOffersRequest` y llama al mismo camino de upsert (extraído a un Action
-  `UpsertRideOfferAction` para no duplicar lógica en dos controllers).
-- **Registro automático (decisión cerrada):** cada scan produce **siempre** una
-  `ride_offer` con `status=received`, aunque falte la tarifa o la plataforma. No hay paso de
-  confirmación del conductor. Si el estado del scan es `review_required`/`failed`, la oferta
-  se registra igualmente con los campos disponibles, `ocr_confidence` baja y `error_code` en
-  `raw_payload`, para que cuente en el funnel y quede auditable.
-  - `offered_fare` es `NOT NULL` en la tabla: se acepta `0.00` cuando no se pudo leer, y
-    `raw_payload['ocr']['missing_fields']` documenta qué faltó. Se prefiere un registro
-    incompleto honesto a perder la oferta del funnel.
-  - `platform` desconocida → `custom`; `service_type` desconocido → `null` +
-    `service_type_raw` + `warnings: ["service_type_unrecognized"]` (nunca se inventa).
-  - El cálculo server-side devuelve `null` (sin veredicto) si falta vehículo/precio, igual
-    que hoy; el móvil ya mostró su veredicto local. 
+- **A new text-provider contract**: `TextRecognitionProvider::recognize(bytes, mime, options): OcrTextResult`
+  with `tesseract` and `azure-read` (prebuilt-read) implementations. The
+  `ReceiptAnalysisProvider`/`ReceiptDataExtractor` contract **is not touched** (still
+  invoices). A `TextRecognitionProviderManager` follows the same pattern as
+  `ReceiptAnalysisProviderManager`.
+- **Persistence:** the image is stored in `local` with the same pattern as
+  `EnergyInvoiceController` (`ride_offers/{user_id}/{uuid}.jpg`), validating MIME and size.
+- **`sync` and the state machine are reused:** OCR produces a payload compatible with
+  `SyncRideOffersRequest` and calls the same upsert path (extracted to an
+  `UpsertRideOfferAction` to avoid duplicating logic across two controllers).
+- **Automatic registration (closed decision):** every scan **always** produces a
+  `ride_offer` with `status=received`, even if the fare or platform is missing. There is
+  no driver confirmation step. If the scan status is `review_required`/`failed`, the offer
+  is still registered with the available fields, low `ocr_confidence` and `error_code` in
+  `raw_payload`, so it counts in the funnel and stays auditable.
+  - `offered_fare` is `NOT NULL` in the table: `0.00` is accepted when it could not be
+    read, and `raw_payload['ocr']['missing_fields']` documents what was missing. An
+    incomplete but honest record is preferred to losing the offer from the funnel.
+  - Unknown platform → `custom`; unknown `service_type` → `null` + `service_type_raw` +
+    `warnings: ["service_type_unrecognized"]` (never invented).
+  - Server-side calculation returns `null` (no verdict) when vehicle/price are missing,
+    same as today; mobile already showed its local verdict.
 
-### 4.2 Nuevo modelo `ride_offer_scans`
+### 4.2 New model `ride_offer_scans`
 
-| Columna         | Tipo                    | Uso                                                                         |
+| Column          | Type                    | Use                                                                         |
 | :-------------- | :---------------------- | :-------------------------------------------------------------------------- |
 | `id`            | bigint                  |                                                                             |
-| `client_uuid`   | uuid                    | Idempotencia de la captura                                                  |
-| `user_id`       | FK users                | Propiedad (cascade)                                                         |
-| `ride_offer_id` | FK ride_offers nullable | Enlace al resultado                                                         |
-| `image_path`    | string                  | Ruta en `local`                                                             |
-| `image_hash`    | char(64)                | SHA-256 para dedupe                                                         |
-| `platform`      | string                  | Detectada o declarada                                                       |
+| `client_uuid`   | uuid                    | Capture idempotency                                                         |
+| `user_id`       | FK users                | Ownership (cascade)                                                         |
+| `ride_offer_id` | FK ride_offers nullable | Link to the produced offer                                                  |
+| `image_path`    | string                  | Path in `local`                                                             |
+| `image_hash`    | char(64)                | SHA-256 for dedupe                                                          |
+| `platform`      | string                  | Detected or declared                                                        |
 | `status`        | string                  | `pending`, `processing`, `parsed`, `review_required`, `failed`, `duplicate` |
-| `received_at`   | timestamp               | Momento local de la captura (lo envía el móvil).                            |
+| `received_at`   | timestamp               | Local capture moment (sent by mobile).                                      |
 | `provider`      | string                  | `tesseract` / `azure-read`                                                  |
-| `ocr_text`      | text                    | Texto normalizado (sin la zona del mapa)                                    |
-| `ocr_tokens`    | json                    | Token×caja de ambos `psm` (para depurar y mostrar)                          |
-| `extracted`     | json                    | Resultado estructurado + confianza por campo                                |
-| `confidence`    | decimal(5,4)            | Media ponderada por campo crítico                                           |
+| `ocr_text`      | text                    | Normalised text (map zone excluded)                                         |
+| `ocr_tokens`    | json                    | Token×box from both `psm` (debug/display)                                   |
+| `extracted`     | json                    | Structured result + per-field confidence                                    |
+| `confidence`    | decimal(5,4)            | Weighted average over critical fields                                        |
 | `error_code`    | string                  | `unreadable`, `unsupported_platform`, `missing_fare`, …                     |
-| `client_extraction` | json nullable       | Extracción hecha por el dispositivo (reconciliación).                       |
+| `client_extraction` | json nullable       | Extraction done on the device (reconciliation).                             |
 | `reconciliation` | string nullable        | `confirmed`, `discrepancy`, `client_only`, `server_only`.                   |
-| `expires_at`    | timestamp               | Retención de imagen (p. ej. 30 días)                                        |
+| `expires_at`    | timestamp               | Image retention (e.g. 30 days)                                              |
 | `timestamps`    |                         |                                                                             |
 
-Migración **nueva y reversible**; índice `(user_id, image_hash, created_at)` y
-`unique(user_id, client_uuid)`. Las imágenes se borran por un job de retención; **nunca** se
-exponen en respuestas (regla de API: no OCR source images).
+New **reversible** migration; index `(user_id, image_hash, created_at)` and
+`unique(user_id, client_uuid)`. Images are deleted by a retention job; they are **never**
+exposed in responses (API rule: no OCR source images).
 
-> **Capturas sin fecha:** verificado en las fixtures: la barra de estado solo muestra la
-> hora (`9:27`, `9:26`), no la fecha. Por eso la deduplicación usa `image_hash` + ventana
-> de `received_at` reportada por el móvil; **nunca** se deduce la fecha del pixel del reloj.
+> **Captures without a date:** verified against the fixtures — the status bar only shows
+> the time (`9:27`, `9:26`), not the date. So dedupe uses `image_hash` + the
+> `received_at` window reported by mobile; the date is **never** inferred from the clock
+> pixels.
 
-### 4.3 Ajustes a `ride_offers` (migración nueva)
+### 4.3 Changes to `ride_offers` (new migration)
 
-- `ocr_confidence_by_field` **json nullable** (confianza por campo; `ocr_confidence` se
-  mantiene como media, retrocompatible).
-- `service_type_raw` **string(64) nullable** (texto tal cual aparecía en pantalla).
-- `ride_offer_scan_id` **FK nullable** (trazabilidad captura → oferta).
-- Catálogo/índice: `index(platform, service_type)`.
-- **Sin borrar ni renombrar columnas.**
+- `ocr_confidence_by_field` **json nullable** (per-field confidence; `ocr_confidence`
+  stays as the average, backwards compatible).
+- `service_type_raw` **string(64) nullable** (text exactly as shown on screen).
+- `ride_offer_scan_id` **nullable FK** (traceability capture → offer).
+- Catalogue/index: `index(platform, service_type)`.
+- **No column is dropped or renamed.**
 
 ---
 
-## 5. Pipelina de extracción (detalle)
+## 5. Extraction pipeline (detail)
 
-### 5.1 Preprocesamiento (`PreprocessRideOfferImageAction`)
+### 5.1 Preprocessing (`PreprocessRideOfferImageAction`)
 
-1. Corregir orientación con `osd` (si está disponible).
-2. Detectar el panel de la oferta por color (fondo casi blanco) y recortarlo; si no se
-   detecta, usar la mitad inferior (Uber) o el panel de tarjeta (DiDi).
-3. Escalar ×2–3 con `Imagick` si `Imagick` está disponible; si no, `GD`.
-4. Generar dos variantes: original en color y escala de grises con umbral adaptativo.
-5. Salida: rutas/bytes de las variantes + metadatos (`crop_rect`, `scale`).
+1. Correct orientation with `osd` when available.
+2. Detect the offer panel by colour (near-white background) and crop it; if not
+   detected, use the bottom half (Uber) or the card panel (DiDi).
+3. Scale ×2–3 with `Imagick` when available, otherwise `GD`.
+4. Produce two variants: original in colour and greyscale with adaptive threshold.
+5. Output: variant paths/bytes + metadata (`crop_rect`, `scale`).
 
-> Nota: `Process::` de Laravel se usa para invocar `tesseract` (`Process::fake()` en tests).
-> Requiere el binario y `tessdata` (`spa`, `eng`) en el servidor; se documenta en
-> `docs/TESTING.md`/deployment y el proveedor Azure queda como _fallback_ configurable.
+> Note: Laravel's `Process::` invokes `tesseract` (`Process::fake()` in tests).
+> Requires the binary and `tessdata` (`spa`, `eng`) on the server; documented in
+> `docs/TESTING.md`/deployment; Azure remains a configurable **fallback**.
 
-### 5.2 Reconocimiento
+### 5.2 Recognition
 
-- `tesseract --oem 1 --psm 6 -l spa+eng` sobre la variante del panel → **texto principal**.
-- `tesseract --oem 1 --psm 11 -l spa+eng` sobre la imagen completa → **etiquetas** (`Exclusivo`,
-  `Viaje disponible`, `Rechazo permitido`).
-- Salida TSV (`stdout tsv`) → tokens con `left/top/width/height/conf`, para filtrar por
-  posición y calcular confianza por campo.
-- `azure-read` (solo si `RIDE_OFFER_OCR_PROVIDER=azure-read`) devuelve `readResults` con `boundingBox`;
-  se normaliza al mismo `OcrToken[]`.
+- `tesseract --oem 1 --psm 6 -l spa+eng` on the panel variant → **main text**.
+- `tesseract --oem 1 --psm 11 -l spa+eng` on the full image → **labels**
+  (`Exclusivo`, `Viaje disponible`, `Rechazo permitido`).
+- TSV output (`stdout tsv`) → tokens with `left/top/width/height/conf`, filtered by
+  position and used to compute per-field confidence.
+- `azure-read` (only when `RIDE_OFFER_OCR_PROVIDER=azure-read`) returns `readResults`
+  with `boundingBox`; normalised to the same `OcrToken[]`.
 
-### 5.3 Parsing por plataforma (`ExtractRideOfferDataAction` + estrategias)
+### 5.3 Per-platform parsing (`ExtractRideOfferDataAction` + strategies)
 
-Una estrategia por plataforma (`UberOfferParser`, `DiDiOfferParser`, `InDriveOfferParser`),
-implementando `RideOfferParser`; se selecciona por etiqueta de marca y por forma del texto.
-Mantenerlas como clases pequeñas en `app/Services/Offers/` (arquitectura vigente).
+One strategy per platform (`UberOfferParser`, `DiDiOfferParser`, `InDriveOfferParser`),
+implementing `RideOfferParser`; selected by brand label and text shape. Keep them as
+small classes under `app/Services/Offers/` (existing architecture).
 
-**Campos comunes y reglas (basadas en las fixtures reales):**
+**Common fields and rules (based on the real fixtures):**
 
-| Campo                                                      | Uber                                                                   | DiDi                                                           |
+| Field                                                      | Uber                                                                   | DiDi                                                           |
 | :--------------------------------------------------------- | :--------------------------------------------------------------------- | :------------------------------------------------------------- |
-| `offered_fare`                                             | primer importe `$X.XX` en el panel                                     | `$1.56` (tarifa fija) o importe tras “Set your fare”           |
-| `surge_amount`                                             | `+$0.36 por inicio de viaje prioritario`                               | recargo explícito si aparece                                   |
-| `estimated_pickup_duration_minutes` / `pickup_distance_km` | `11 min (6.3 km)`                                                      | `7min (3,2km)` — **coma decimal**                              |
+| `offered_fare`                                             | first `$X.XX` amount in the panel                                      | `$1.56` (fixed fare) or amount after "Set your fare"           |
+| `surge_amount`                                             | `+$0.36 por inicio de viaje prioritario`                               | explicit surcharge when present                                 |
+| `estimated_pickup_duration_minutes` / `pickup_distance_km` | `11 min (6.3 km)`                                                      | `7min (3,2km)` — **decimal comma**                             |
 | `estimated_duration_minutes` / `estimated_distance_km`     | `Viaje: 17 min (7.6 km)`                                               | `9min (5.4km)`                                                 |
-| `pickup_address`                                           | línea siguiente al bloque de recogida                                  | `17 de Septiembre, 1335, Llano Chico`                          |
-| `destination_address`                                      | línea antes de `Viaje:`                                                | `Pizzería El Tablón, San Isidro del Inca`                      |
-| `rider_rating` / `rider_trip_count`                        | `4.91 (377)` — **solo con posición en panel**                          | `4.78 · 41 viajes`                                             |
-| `rider_verified`                                           | “Identidad digital verificada”                                         | icono/etiqueta equivalente                                     |
-| `payment_method`                                           | no visible                                                             | `Pago en efectivo` → `cash`                                    |
-| `service_type`                                             | etiqueta/servicio de la oferta; si no: `null` + warning (no se inventa) | `Express Nuevo` → `express`; `Set your fare` → `set_your_fare` |
-| `availability_type`                                        | `Exclusivo` → `exclusive`; `Viaje disponible` → `available_trip`       | exclusiva vs. lista                                            |
-| `expires_at`                                               | contador visible → `received_at + N s`                                 | ídem                                                           |
+| `pickup_address`                                           | line after the pickup block                                            | `17 de Septiembre, 1335, Llano Chico`                          |
+| `destination_address`                                      | line before `Viaje:`                                                   | `Pizzería El Tablón, San Isidro del Inca`                      |
+| `rider_rating` / `rider_trip_count`                        | `4.91 (377)` — **panel position only**                                 | `4.78 · 41 viajes`                                             |
+| `rider_verified`                                           | "Identidad digital verificada"                                         | equivalent icon/label                                          |
+| `payment_method`                                           | not visible                                                            | `Pago en efectivo` → `cash`                                    |
+| `service_type`                                             | offer label/service; if none: `null` + warning (never invented)        | `Express Nuevo` → `express`; `Set your fare` → `set_your_fare` |
+| `availability_type`                                        | `Exclusivo` → `exclusive`; `Viaje disponible` → `available_trip`       | exclusive vs. list                                             |
+| `expires_at`                                               | visible counter → `received_at + N s`                                  | same                                                           |
 | `platform`                                                 | `uber`                                                                 | `didi`                                                         |
 
-**Reglas anti-ruido:**
+**Anti-noise rules:**
 
-1. Descartar tokens fuera del `crop_rect` del panel y tokens cuya `x` sea < 15 % del ancho
-   (columna del mapa), salvo que pertenezcan a una línea de dirección ya anclada.
-2. Reconstruir líneas agrupando tokens por `top` (± 8 px) y ordenando por `left`.
-3. Los patrones de rating exigen `^[0-4]\.\d{2}$` y un conteo entre paréntesis **en la
-   misma línea del panel**, para evitar el falso positivo `Ak 491 (377)`.
-4. Normalizar decimales por idioma: si la plataforma es `didi` y el patrón es `\d+,\d+`,
-   convertir a punto; nunca asumir separador de miles sin verificar el patrón.
-5. Fallback de distancias: si solo hay una pareja `(min, km)`, se asume **viaje** cuando va
-   precedida de `Viaje:` o cuando el panel tiene > 1; si no, **recogida**. Esa ambigüedad
-   se marca con confianza baja y nunca invalida la oferta.
-6. Si falta `offered_fare` o no hay plataforma reconocible → `review_required`, con
-   `error_code` y `extracted` parcial; **la oferta se registra igualmente** (decisión
-   cerrada: siempre se registra), con `offered_fare = 0.00` y `missing_fields`.
-7. **No extraer la barra de estado** (hora, batería, WhatsApp): el reloj no tiene fecha y
-   nunca debe alimentar `received_at`, `expires_at` ni la deduplicación.
+1. Discard tokens outside the panel `crop_rect` and tokens with `x` < 15 % of width
+   (map column), unless they belong to an already anchored address line.
+2. Rebuild lines by grouping tokens by `top` (± 8 px) and sorting by `left`.
+3. Rating patterns require `^[0-4]\.\d{2}$` and a parenthesised count **on the same
+   panel line**, avoiding the `Ak 491 (377)` false positive.
+4. Normalise decimals by language: when the platform is `didi` and the pattern is
+   `\d+,\d+`, convert to a dot; never assume a thousands separator without verifying
+   the pattern.
+5. Distance fallback: when only one `(min, km)` pair exists, assume **trip** when
+   preceded by `Viaje:` or when the panel has > 1 pair; otherwise **pickup**. That
+   ambiguity is flagged with low confidence and never invalidates the offer.
+6. If `offered_fare` is missing or the platform is unrecognisable → `review_required`,
+   with `error_code` and partial `extracted`; **the offer is still registered** (closed
+   decision: always registered), with `offered_fare = 0.00` and `missing_fields`.
+7. **Do not extract the status bar** (time, battery, WhatsApp): the clock has no date and
+   must never feed `received_at`, `expires_at` or dedupe.
 
-### 5.4 Contrato de respuesta (`RideOfferOcrResource`)
+### 5.4 Response contract (`RideOfferOcrResource`)
 
-`POST /ride-offers/ocr` (multipart: `image` + campos) o `application/json` con
+`POST /ride-offers/ocr` (multipart: `image` + fields) or `application/json` with
 `image_base64` → `202`:
 
 ```json
 {
-    "image": "<multipart o base64>",
+    "image": "<multipart or base64>",
     "client_uuid": "7b1c…",
     "received_at": "2026-11-13T09:27:14-05:00",
     "platform_hint": "uber",
@@ -350,7 +354,7 @@ Mantenerlas como clases pequeñas en `app/Services/Offers/` (arquitectura vigent
 }
 ```
 
-Respuesta `202`:
+`202` response:
 
 ```json
 {
@@ -364,14 +368,14 @@ Respuesta `202`:
 }
 ```
 
-- `client_uuid` es **obligatorio** y lo genera el móvil: si el reintento de la cola offline
-  repite la subida, el endpoint responde `200` con el mismo scan (idempotente).
-- `received_at` lo envía el cliente; sin él se usa `now()`. La barra de estado del
-  screenshot no se usa como reloj.
-- `client_extraction` es **opcional**; la oferta se registra en el `202` (sin esperar OCR),
-  con la extracción local como valores iniciales, y el job la completa/reconcilia.
+- `client_uuid` is **mandatory** and generated by mobile: on an offline-queue retry the
+  endpoint responds `200` with the same scan (idempotent).
+- `received_at` is sent by the client; without it `now()` is used. The screenshot status
+  bar is never used as a clock.
+- `client_extraction` is **optional**; the offer is registered on `202` (without waiting
+  for OCR), with the local extraction as initial values, and the job completes/reconciles.
 
-`GET /ride-offers/ocr/{client_uuid}` → `200` (mismo usuario):
+`GET /ride-offers/ocr/{client_uuid}` → `200` (same user):
 
 ```json
 {
@@ -408,47 +412,47 @@ Respuesta `202`:
 }
 ```
 
-- **No hay confirmación del conductor (decisión cerrada).** El scan registra la oferta
-  automáticamente; `GET` sirve para mostrarla/auditarla, no para aprobarla.
-- El móvil no necesita esperar este `GET`: ya tiene su extracción y su veredicto local. El
-  `GET` existe para diagnoóstico, historial y clientes web.
-- Ambas rutas (`ocr` y `sync`) usan el mismo `UpsertRideOfferAction`.
-- Ninguna respuesta expone la imagen, el texto OCR crudo completo ni tokens con cajas en
-  producción (solo en `debug` o endpoint admin futuro).
-- `warnings` posibles: `service_type_unrecognized`, `missing_fare`, `distance_ambiguous`,
+- **No driver confirmation (closed decision).** The scan registers the offer
+  automatically; `GET` is for display/audit, not approval.
+- Mobile does not need to wait for this `GET`: it already has its extraction and local
+  verdict. The `GET` exists for diagnostics, history and web clients.
+- Both routes (`ocr` and `sync`) share the same `UpsertRideOfferAction`.
+- No response exposes the image, the full raw OCR text or the bounding boxes in
+  production (only in `debug` or a future admin endpoint).
+- Possible `warnings`: `service_type_unrecognized`, `missing_fare`, `distance_ambiguous`,
   `client_server_discrepancy`, `client_extraction_used`.
 
-### 5.5 Vínculo con el veredicto
+### 5.5 Link to the verdict
 
-- La tarifa debe ser **del viaje**, no de la recogida: el contrato de cálculo usa
-  `estimated_distance_km` como distancia del viaje y `pickup_distance_km` como
-  _deadhead_. En las fixtures Uber, la primera línea (`11 min (6.3 km)`) es **recogida** y
-  `Viaje:` es el **viaje**; invertirlas cambia el veredicto. Es el error más caro posible.
-- Si `vehicle_id` viene en el request del scan, se recomputa al final y se devuelve
-  `server_verdict` junto con la oferta (mismo comportamiento que `sync`).
+- The fare must be the **trip** fare, not the pickup: the calculation contract uses
+  `estimated_distance_km` as trip distance and `pickup_distance_km` as deadhead. In the
+  Uber fixtures the first line (`11 min (6.3 km)`) is **pickup** and `Viaje:` is the
+  **trip**; swapping them changes the verdict. This is the most expensive possible error.
+- If `vehicle_id` is present in the scan request, recompute at the end and return
+  `server_verdict` with the offer (same behaviour as `sync`).
 
 ---
 
-## 6. Deduplicación
+## 6. Deduplication
 
-1. `image_hash = sha256(bytes)` calculado sobre los bytes **originales** (sin recomprimir:
-   el móvil haría perder el hash y provocaría duplicados).
-2. **Idempotencia primaria:** `unique(user_id, client_uuid)` del scan. El reintento offline
-   de la cola del móvil devuelve el mismo scan (`200`), sin reprocesar.
-3. **Detección de recaptura:** si existe un scan del mismo usuario + `image_hash` con
-   `received_at` dentro de ±120 s y **misma plataforma** → `duplicate`, se enlaza al mismo
-   `ride_offer_id` (la oferta no se duplica ni se reagrupa el funnel).
-4. `client_uuid`: lo genera el móvil (`uuid v4`) y se conserva entre reintentos. Para
-   clientes sin cola offline (web), el servidor genera
+1. `image_hash = sha256(bytes)` computed on the **original bytes** (without
+   re-encoding: mobile re-encoding would invalidate the hash and create duplicates).
+2. **Primary idempotency:** `unique(user_id, client_uuid)` on the scan. An offline-queue
+   retry from mobile returns the same scan (`200`) without reprocessing.
+3. **Recapture detection:** if a scan exists for the same user + `image_hash` with
+   `received_at` within ±120 s and **same platform** → `duplicate`, linked to the same
+   `ride_offer_id` (no duplicated offer, no extra funnel entry).
+4. `client_uuid`: generated by mobile (`uuid v4`) and kept across retries. For clients
+   without an offline queue (web), the server generates
    `uuid5(NAMESPACE_URL, "offer|{user}|{platform}|{fare}|{distance}|{received_at_minute}")`
-   para que reintentos convergentes no dupliquen.
-5. Un `duplicate` **nunca** crea un `received` nuevo en `ride_offer_events`.
+   so convergent retries do not duplicate.
+5. A `duplicate` **never** creates a new `received` event in `ride_offer_events`.
 
 ---
 
-## 7. Configuración y secretos
+## 7. Configuration and secrets
 
-`config/ride_offer_ocr.php` (Tesseract es el **predeterminado**, decisión cerrada):
+`config/ride_offer_ocr.php` (Tesseract is the **default**, closed decision):
 
 ```php
 return [
@@ -476,135 +480,138 @@ return [
 ];
 ```
 
-`default_service_types` se elimina: ya no se inventa `uberx`/`express` cuando no hay
-etiqueta (decisión: `service_type` desconocido → `null` + warning).
+`default_service_types` is removed: a service type is no longer invented as
+`uberx`/`express` when there is no label (decision: unknown `service_type` → `null` +
+warning).
 
-### 7.1 Lado móvil (`ride-efficiency-mobile`)
+### 7.1 Mobile side (`ride-efficiency-mobile`)
 
-Requisitos que el API asume y que deben coordinarse con el repo móvil:
+Requirements the API assumes and that must be coordinated with the mobile repo:
 
-- **Motor OCR en dispositivo:** Android → ML Kit Text Recognition v2 (bundled);
-  iOS → Vision (`VNRecognizeTextRequest`) o ML Kit iOS. Sin red. Tesseract nativo solo si
-  se necesita control fino del `psm`; **primera opción ML Kit** por latencia y calidad en
-  texto de UI.
-- **Cálculo local:** npm `gig-economics` + `GET /profitability/profile` cacheado por
-  `calculation_version` (contrato v1 ya existe). El veredicto se muestra **antes** de
-  cualquier llamada de red.
-- **Cola offline:** reintentos exponenciales con el mismo `client_uuid`; la subida usa
-  `POST /ride-offers/ocr` y tolera `200` (idempotente) y `202`.
-- **Reglas compartidas:** los parsers móvil y servidor deben cubrir los **mismos casos de
-  fixture**. Los casos de aceptación (`shared/profitability-fixtures/v1/cases.json` y
-  `tests/Fixtures/offers/*.txt`) se replican en el repo móvil para evitar divergencia.
-- **Privacidad:** el móvil recorta el panel antes de subir (no envía la barra de estado ni
-  el mapa completo); opcionalmente envía solo la región del panel.
+- **On-device OCR engine:** Android → ML Kit Text Recognition v2 (bundled);
+  iOS → Vision (`VNRecognizeTextRequest`) or ML Kit iOS. No network. Native Tesseract
+  only if fine-grained `psm` control is needed; **ML Kit is the first choice** for
+  latency and UI-text quality.
+- **Local calculation:** npm `gig-economics` + cached `GET /profitability/profile` by
+  `calculation_version` (contract v1 already exists). The verdict is shown **before**
+  any network call.
+- **Offline queue:** exponential retries with the same `client_uuid`; upload uses
+  `POST /ride-offers/ocr` and tolerates `200` (idempotent) and `202`.
+- **Shared rules:** mobile and server parsers must cover the **same fixture cases**.
+  Acceptance cases (`shared/profitability-fixtures/v1/cases.json` and
+  `tests/Fixtures/offers/*.txt`) are replicated in the mobile repo to avoid divergence.
+- **Privacy:** mobile crops the panel before uploading (no status bar, no full map);
+  optionally it sends only the panel region.
 
-`.env.example` y despliegue: requiere binario `tesseract` + `tessdata` (`spa`, `eng`, `osd`)
-y extensiones `gd`/`imagick`. Si faltan, el job marca `error_code=provider_unavailable`; la
-respuesta nunca es `500` y la oferta **ya está registrada** con la extracción local del móvil
-(o como `review_required` si no la hubo).
+`.env.example` and deployment: requires the `tesseract` binary + `tessdata` (`spa`, `eng`,
+`osd`) and the `gd`/`imagick` extensions. If they are missing the job sets
+`error_code=provider_unavailable`; the response is never `500` and the offer is **already
+registered** with the mobile's local extraction (or as `review_required` if there was
+none).
 
 ---
 
-## 8. Tareas (orden de implementación)
+## 8. Tasks (implementation order)
 
-Sizes: S / M / L. Todas con test propio.
+Sizes: S / M / L. Each task has its own tests.
 
-| #            | Tarea                                                                                                                                        | Size | Depende |
+| #            | Task                                                                                                                                        | Size | Depends |
 | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :--- | :------ |
-| OFFER-OCR-01 ✅ | Catálogo `config/ride_offer_platforms.php` + `ServiceTypeCatalog` (normalización, alias ES/EN) y `GET /ride-offers/catalog` para mobile.       | M    | —       |
-| OFFER-OCR-02 ✅ | Migración `ride_offer_scans` (+ `client_extraction`, `reconciliation`) y cambios aditivos en `ride_offers` (reversible).                     | M    | —       |
-| OFFER-OCR-03 | Contrato `TextRecognitionProvider` + `TesseractTextRecognitionProvider` (via `Process`, TSV→tokens) + manager (**por defecto**).              | M    | —       |
-| OFFER-OCR-04 | `AzureReadTextRecognitionProvider` (prebuilt-read) como **fallback opcional**; normalización de `boundingBox`.                                | M    | 03      |
-| OFFER-OCR-05 | `PreprocessRideOfferImageAction` (crop por color de panel, escala, dos variantes, exclusión de la barra de estado).                           | M    | —       |
-| OFFER-OCR-06 | `RideOfferParser` + `UberOfferParser` (priority, exclusivo, viaje disponible, surge, rating con posición).                                   | L    | 01, 05  |
-| OFFER-OCR-07 | `DiDiOfferParser` (Express, Express Nuevo, Set your fare, efectivo, coma decimal, lista).                                                    | L    | 01, 05  |
-| OFFER-OCR-08 | `InDriveOfferParser` (scaffold + tests de contrato, sin lógica de producción todavía).                                                       | S    | 01      |
-| OFFER-OCR-09 | `ExtractRideOfferDataAction`: selección de estrategia, confianza por campo, warnings (sin inventar `service_type`).                           | M    | 06, 07  |
-| OFFER-OCR-10 | `ProcessRideOfferOcrJob`: dedupe, reconciliación con `client_extraction`, registro **siempre**.                                              | M    | 02, 09  |
-| OFFER-OCR-11 | Extraer `UpsertRideOfferAction` de `RideOfferController::sync` y reutilizarlo (sin cambiar el contrato de `sync`).                          | M    | 10      |
-| OFFER-OCR-12 | `POST /ride-offers/ocr` (multipart/base64, idempotente por `client_uuid`) + `GET /ride-offers/ocr/{clientUuid}` + ownership + throttling.    | M    | 10, 11  |
-| OFFER-OCR-13 | Registro inmediato de la oferta en el `202` (con `client_extraction` o placeholder) y enriquecimiento posterior por el job.                   | M    | 12      |
-| OFFER-OCR-14 | Retención de imágenes (`PurgeRideOfferScanImagesJob`, 30 días) y borrado en `delete` del usuario.                                           | S    | 02      |
-| OFFER-OCR-15 | Validación de `platform`/`service_type`/`availability_type` contra el catálogo en `SyncRideOffersRequest` (aditivo, tolerante).              | S    | 01      |
-| OFFER-OCR-16 | Fixtures: `tests/Fixtures/offers/*.txt` (texto OCR sintético por variante) y anonimizar las `oferta_*.jpeg` reales antes de commitear.        | S    | —       |
-| OFFER-OCR-17 | Harness `php artisan ride-offers:ocr-fixtures` (local) que corre la pipeline contra fixtures y reporta aciertos por campo.                   | M    | 09      |
-| OFFER-OCR-18 | **Mobile (repo `ride-efficiency-mobile`):** OCR nativo (ML Kit/Vision) + parsers + cálculo local + cola offline de subida + veredicto sin red. | L    | 01, 16  |
-| OFFER-OCR-19 | Paridad móvil ↔ servidor sobre los mismos fixtures de texto y `profitability-fixtures/v1/cases.json`.                                         | M    | 17, 18  |
-| OFFER-OCR-20 | Documentación: README (endpoints nuevos), `IMPLEMENTATION_PLAN.md` (API-OFFER-22+) y contrato compartido con mobile.                          | S    | 12      |
-| OFFER-OCR-21 | Prueba en dispositivo real: 20 capturas por plataforma y métrica de precisión por campo; ajuste de umbrales.                                 | M    | 17, 19  |
+| OFFER-OCR-01 ✅ | Catalogue `config/ride_offer_platforms.php` + `ServiceTypeCatalog` (normalisation, ES/EN aliases) and `GET /ride-offers/catalog` for mobile.  | M    | —       |
+| OFFER-OCR-02 ✅ | Migration `ride_offer_scans` (+ `client_extraction`, `reconciliation`) and additive changes to `ride_offers` (reversible).                   | M    | —       |
+| OFFER-OCR-03 | Contract `TextRecognitionProvider` + `TesseractTextRecognitionProvider` (via `Process`, TSV→tokens) + manager (**default**).                  | M    | —       |
+| OFFER-OCR-04 | `AzureReadTextRecognitionProvider` (prebuilt-read) as an **optional fallback**; `boundingBox` normalisation.                                  | M    | 03      |
+| OFFER-OCR-05 | `PreprocessRideOfferImageAction` (panel crop by colour, scaling, two variants, status-bar exclusion).                                         | M    | —       |
+| OFFER-OCR-06 | `RideOfferParser` + `UberOfferParser` (priority, exclusive, available trip, surge, rating by position).                                     | L    | 01, 05  |
+| OFFER-OCR-07 | `DiDiOfferParser` (Express, Express Nuevo, Set your fare, cash, decimal comma, list).                                                        | L    | 01, 05  |
+| OFFER-OCR-08 | `InDriveOfferParser` (scaffold + contract tests, no production logic yet).                                                                   | S    | 01      |
+| OFFER-OCR-09 | `ExtractRideOfferDataAction`: strategy selection, per-field confidence, warnings (never invent `service_type`).                               | M    | 06, 07  |
+| OFFER-OCR-10 | `ProcessRideOfferOcrJob`: dedupe, reconciliation with `client_extraction`, always registers.                                                 | M    | 02, 09  |
+| OFFER-OCR-11 | Extract `UpsertRideOfferAction` from `RideOfferController::sync` and reuse it (no change to the `sync` contract).                            | M    | 10      |
+| OFFER-OCR-12 | `POST /ride-offers/ocr` (multipart/base64, idempotent on `client_uuid`) + `GET /ride-offers/ocr/{clientUuid}` + ownership + throttling.       | M    | 10, 11  |
+| OFFER-OCR-13 | Immediate offer registration on the `202` (with `client_extraction` or placeholder) and later enrichment by the job.                          | M    | 12      |
+| OFFER-OCR-14 | Image retention (`PurgeRideOfferScanImagesJob`, 30 days) and deletion on user delete.                                                       | S    | 02      |
+| OFFER-OCR-15 | Validate `platform`/`service_type`/`availability_type` against the catalogue in `SyncRideOffersRequest` (additive, tolerant).                | S    | 01      |
+| OFFER-OCR-16 | Fixtures: `tests/Fixtures/offers/*.txt` (synthetic OCR text per variant) and anonymise the real `oferta_*.jpeg` before committing.            | S    | —       |
+| OFFER-OCR-17 | Harness `php artisan ride-offers:ocr-fixtures` (local) that runs the pipeline over fixtures and reports per-field accuracy.                   | M    | 09      |
+| OFFER-OCR-18 | **Mobile (repo `ride-efficiency-mobile`):** native OCR (ML Kit/Vision) + parsers + local calculation + offline upload queue + verdict without network. | L | 01, 16  |
+| OFFER-OCR-19 | Mobile ↔ server parity on the same text fixtures and `profitability-fixtures/v1/cases.json`.                                                  | M    | 17, 18  |
+| OFFER-OCR-20 | Documentation: README (new endpoints), `IMPLEMENTATION_PLAN.md` (API-OFFER-22+) and shared contract with mobile.                              | S    | 12      |
+| OFFER-OCR-21 | Real-device test: 20 captures per platform and per-field accuracy metric; threshold tuning.                                                  | M    | 17, 19  |
 
-**Ruta crítica (API):** 01 → 05 → 06/07 → 09 → 10 → 11/12 → 13.
+**Critical path (API):** 01 → 05 → 06/07 → 09 → 10 → 11/12 → 13.
 
-**Ruta crítica (móvil):** 01 (catálogo) → 16 (fixtures) → 18 → 19 → 21.
+**Critical path (mobile):** 01 (catalogue) → 16 (fixtures) → 18 → 19 → 21.
 
-> La extracción y el cálculo en mobile (18) **no dependen** de la cola del API: puede
-> empezar en paralelo con 02–13 usando el catálogo (01) y los fixtures de texto (16).
-
----
-
-## 9. Estrategia de pruebas
-
-- **Unit/Fixture (offline):** parsers alimentados con texto OCR sintético (Uber priority,
-  Uber available, DiDi exclusive, DiDi list, DiDi set-your-fare) y aserciones por campo.
-  Incluir casos negativos: `Ak 491 (377)` no debe ser rating; `3,2km` = 3.2; `All min` no
-  debe parsear como duración.
-- **Fake de `Process`:** `Process::fake()` con salidas TSV reales (fixtures) para
-  `ProcessRideOfferOcrJob`; `Storage::fake('local')`; `Queue::fake()` en el endpoint.
-- **Feature:** `202` + propiedad por usuario, `403/404` cruzado, validación (`422`) de
-  MIME/tamaño/plataforma, `duplicate`, reintento idempotente con el mismo `client_uuid`,
-  no exposición de `image_path`/`ocr_text` en respuestas.
-- **Registro automático:** un scan con `client_extraction` y uno sin ella **crean** una
-  `ride_offer` en el `202`; un scan sin tarifa crea la oferta con `offered_fare=0.00` y
-  `missing_fare` (no se pierde el funnel).
-- **Reconciliación:** coincidencia → `confirmed`; divergencia > tolerancia → `discrepancy`
-  y gana el servidor; OCR ilegible + extracción local válida → `client_only`.
-- **Contrato:** forma del JSON de `GET /ride-offers/ocr/{uuid}` en cada estado.
-- **Aceptación de precisión:** ≥ 95 % en `offered_fare` y `estimated_distance_km`;
-  ≥ 90 % en dirección de recogida; `service_type` **nunca inventado** (si no es claro →
-  `null` + warning). Medido con OFFER-OCR-17/21.
-- **Paridad (OFFER-OCR-19):** mismos fixtures de texto y mismas `cases.json` en mobile y
-  API; el veredicto local y el `server_verdict` deben coincidir para el mismo payload.
-- `composer test` (Pint + PHPStan nivel 7 + Pest) antes de cerrar.
+> Mobile extraction and calculation (18) **do not depend** on the API queue: they can
+> start in parallel with 02–13 using the catalogue (01) and the text fixtures (16).
 
 ---
 
-## 10. Riesgos y mitigaciones
+## 9. Testing strategy
 
-| Riesgo                                                        | Impacto                           | Mitigación                                                                                          |
+- **Unit/Fixture (offline):** parsers fed with synthetic OCR text (Uber priority,
+  Uber available, DiDi exclusive, DiDi list, DiDi set-your-fare) with per-field
+  assertions. Negative cases: `Ak 491 (377)` must not be a rating; `3,2km` = 3.2;
+  `All min` must not parse as a duration.
+- **`Process` fake:** `Process::fake()` with real TSV outputs (fixtures) for
+  `ProcessRideOfferOcrJob`; `Storage::fake('local')`; `Queue::fake()` on the endpoint.
+- **Feature:** `202` + per-user ownership, cross-user `403/404`, validation (`422`) on
+  MIME/size/platform, `duplicate`, idempotent retry with the same `client_uuid`, no
+  exposure of `image_path`/`ocr_text` in responses.
+- **Automatic registration:** a scan with `client_extraction` and one without **both**
+  create a `ride_offer` on `202`; a scan without a fare creates the offer with
+  `offered_fare=0.00` and `missing_fare` (no funnel loss).
+- **Reconciliation:** match → `confirmed`; divergence over tolerance → `discrepancy`
+  and the server wins; unreadable OCR + valid local extraction → `client_only`.
+- **Contract:** shape of the `GET /ride-offers/ocr/{uuid}` JSON in every state.
+- **Accuracy acceptance:** ≥ 95 % on `offered_fare` and `estimated_distance_km`;
+  ≥ 90 % on pickup address; `service_type` **never invented** (unclear → `null` +
+  warning). Measured with OFFER-OCR-17/21.
+- **Parity (OFFER-OCR-19):** same text fixtures and same `cases.json` in mobile and API;
+  the local verdict and `server_verdict` must agree for the same payload.
+- `composer test` (Pint + PHPStan level 7 + Pest) before closing.
+
+---
+
+## 10. Risks and mitigations
+
+| Risk                                                          | Impact                            | Mitigation                                                                                          |
 | :------------------------------------------------------------ | :-------------------------------- | :-------------------------------------------------------------------------------------------------- |
-| Confundir recogida con viaje                                  | Veredicto totalmente erróneo      | Regla `Viaje:` + separación explícita y test de regresión                                           |
-| Relleno semitransparente del panel (Uber) deja texto del mapa | Falsos positivos (`Ak 491 (377)`) | Crop por color + filtro por `x` + validación de formato                                             |
-| `spa`/`eng` resuelven mal tipografía pequeña                  | Etiquetas frágiles (`Exclusivo`)  | Doble `psm`, inferencia desde contexto y `service_type` opcional                                    |
-| Binario Tesseract ausente en producción                       | Job falla en masa                 | Preflight check + `provider_unavailable` + fallback Azure Read                                      |
-| Capturas duplicadas                                           | Métricas infladas                 | `image_hash` + ventana + `client_uuid` determinista                                                 |
-| PII en capturas (nombres, direcciones, teléfonos en la barra) | Cumplimiento                      | Recorte estricto del panel, no persistir texto de la barra de estado, retención de imagen y borrado |
-| Cambios de UI de Uber/DiDi                                    | Parsers obsoletos                 | Catálogo + fixtures + harness + `raw_payload` para diagnosis                                        |
-| Coste Azure                                                   | Billing                           | Tesseract por defecto; Azure solo fallback configurable                                             |
-| Mobile sin red o con API caído                                | Sin veredicto                     | Extracción + cálculo locales; la subida se reintenta desde la cola offline                          |
-| Batería/CPU en el dispositivo                                 | Mala experiencia                  | ML Kit, procesar solo el panel recortado y sin recodificar la imagen que se sube                    |
-| Divergencia móvil ↔ servidor                                  | Métricas inconsistentes           | Reconciliación explícita por campo + paridad de fixtures en ambos repos                             |
-| Duplicados por reintento offline                              | Funnel inflado                    | `client_uuid` estable + `200` idempotente + `image_hash` + ventana ±120 s                            |
+| Confusing pickup with trip                                    | Totally wrong verdict             | `Viaje:` rule + explicit separation + regression test                                               |
+| Semi-transparent panel fill (Uber) leaves map text             | False positives (`Ak 491 (377)`)  | Colour crop + `x` filter + format validation                                                        |
+| `spa`/`eng` misread small type                                | Fragile labels (`Exclusivo`)      | Double `psm`, context inference and optional `service_type`                                         |
+| Tesseract binary missing in production                        | Mass job failure                  | Preflight check + `provider_unavailable` + Azure Read fallback                                      |
+| Duplicate captures                                            | Inflated metrics                  | `image_hash` + window + deterministic `client_uuid`                                                 |
+| PII in captures (names, addresses, phones in the status bar)   | Compliance                        | Strict panel crop, no status-bar text persisted, image retention and deletion                       |
+| Uber/DiDi UI changes                                          | Stale parsers                     | Catalogue + fixtures + harness + `raw_payload` for diagnosis                                        |
+| Azure cost                                                    | Billing                           | Tesseract by default; Azure only as a configurable fallback                                         |
+| Mobile offline or API down                                    | No verdict                        | Local extraction + calculation; upload retried from the offline queue                               |
+| Battery/CPU on device                                         | Bad experience                    | ML Kit, process only the cropped panel, do not re-encode the uploaded image                         |
+| Mobile ↔ server divergence                                    | Inconsistent metrics              | Explicit per-field reconciliation + fixture parity in both repos                                    |
+| Duplicates from offline retry                                 | Inflated funnel                   | Stable `client_uuid` + idempotent `200` + `image_hash` + ±120 s window                             |
 
 ---
 
-## 11. Decisiones cerradas y pendientes
+## 11. Closed and pending decisions
 
-### Cerradas
+### Closed
 
-1. **Tesseract por defecto** en el servidor; Azure Read queda como fallback opcional.
-2. **Sin confirmación del conductor:** toda oferta detectada se registra automáticamente;
-   un scan de baja confianza registra la oferta con los campos disponibles y warning.
-3. **Mobile es el camino crítico:** extracción nativa (ML Kit/Vision) + cálculo local con
-   `gig-economics`; la imagen se sube después y el API procesa en segundo plano.
-4. **`service_type` no se inventa** cuando no hay etiqueta
+1. **Tesseract by default** on the server; Azure Read is an optional fallback.
+2. **No driver confirmation:** every detected offer is registered automatically; a
+   low-confidence scan registers the offer with the available fields and a warning.
+3. **Mobile is the critical path:** native extraction (ML Kit/Vision) + local calculation
+   with `gig-economics`; the image is uploaded afterwards and processed by the API in
+   the background.
+4. **`service_type` is never invented** when there is no label
    (`null` + `service_type_raw` + warning).
 
-### Pendientes (bajo impacto, decisiones sugeridas)
+### Pending (low impact, suggested decisions)
 
-1. **Catálogo por país:** sugerencia → catálogo global con alias; `country_code` solo para
-   habilitar/ocultar tipos por mercado si aparece un conflicto real.
-2. **Fixtures reales:** las `oferta_*.jpeg` tienen direcciones y nombres reales de Quito;
-   anonimizarlas o reemplazarlas antes de commitearlas (regla de datos de prueba), y usar
-   los `*.txt` sintéticos como fuente de verdad de los tests.
-3. **Retención de la imagen:** sugerencia 30 días, configurable; se conserva la extracción
-   y se borra el archivo.
+1. **Per-country catalogue:** suggestion → global catalogue with aliases; `country_code`
+   only enables/disables types per market if a real conflict appears.
+2. **Real fixtures:** the `oferta_*.jpeg` files contain real Quito addresses and names;
+   anonymise or replace them before committing (test-data rule), and use the synthetic
+   `*.txt` files as the source of truth for tests.
+3. **Image retention:** suggestion 30 days, configurable; the extraction is kept and the
+   file is deleted.

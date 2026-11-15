@@ -23,3 +23,4 @@ yarn-error.log
 
 # Local OCR test fixtures (not for commit)
 tests/factura*
+tests/oferta_*

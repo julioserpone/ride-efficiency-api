@@ -137,6 +137,24 @@ it('computes the net profit of a shift from earnings, fuel and depreciation', fu
 });
 ```
 
+## Offer OCR pipeline
+
+- The text provider is exercised with `Process::fake()` and TSV fixtures under
+  `tests/Fixtures/offers/tsv/`; the default suite never runs the real binary.
+- Image preprocessing tests build synthetic images with GD. CI installs the
+  `gd` extension in `.github/workflows/tests.yml`.
+- Manual verification of the real recogniser needs the `tesseract` binary and
+  the `spa`, `eng` and `osd` language data:
+
+  ```bash
+  tesseract --version
+  tesseract --list-langs   # eng, osd, spa
+  ```
+
+- `tests/oferta_*.jpeg` are local-only screenshots and are git-ignored: they
+  contain real addresses and names. Tests use synthetic `.tsv`/`.txt` fixtures
+  instead.
+
 ## Running
 
 ```bash
